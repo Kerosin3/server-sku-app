@@ -2,13 +2,29 @@
 {% block content %}
 <h1>Изделия</h1>
 
-<input type="search" placeholder="Поиск по серийнику / asset tag"
+<input type="search" placeholder="Поиск по серийнику / инвентарному номеру"
        hx-get="/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results">
 <div id="search-results"></div>
 
+<form method="get" action="/">
+  <label>Исполнение
+    <select name="variant_id" onchange="this.form.submit()">
+      <option value="">— все изделия —</option>
+      {% for p in platforms %}
+      <optgroup label="{{ p.name }}">
+        {% for v in p.variants %}
+        <option value="{{ v.id }}" {% if v.id == selected_variant_id %}selected{% endif %}>{{ v.name }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </label>
+  <noscript><button type="submit">Показать</button></noscript>
+</form>
+
 <table>
   <thead>
-    <tr><th>Asset tag</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>
+    <tr><th>Инвентарный номер</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>
   </thead>
   <tbody>
     {% for i in items %}

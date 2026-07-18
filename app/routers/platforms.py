@@ -15,15 +15,20 @@ router = APIRouter(tags=["platforms"])
 @router.get("/", response_class=HTMLResponse)
 def dashboard(
     request: Request,
+    variant_id: int | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    items = db.scalars(
-        select(PlatformItem)
-        .options(selectinload(PlatformItem.platform_variant))
-        .order_by(PlatformItem.id.desc())
-    ).all()
-    return templates.TemplateResponse(request, "dashboard.html", {"items": items, "user": user})
+    stmt = select(PlatformItem).options(selectinload(PlatformItem.platform_variant)).order_by(PlatformItem.id.desc())
+    if variant_id is not None:
+        stmt = stmt.where(PlatformItem.platform_variant_id == variant_id)
+    items = db.scalars(stmt).all()
+    platforms = platforms_service.list_platforms(db)
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {"items": items, "platforms": platforms, "selected_variant_id": variant_id, "user": user},
+    )
 
 
 def _get_platform_or_404(db: Session, platform_id: int) -> Platform:

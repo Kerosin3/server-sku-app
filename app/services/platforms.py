@@ -14,7 +14,11 @@ class PlatformNameTakenError(Exception):
 
 
 def list_platforms(db: Session) -> list[Platform]:
-    return list(db.scalars(select(Platform).order_by(Platform.name)).all())
+    return list(
+        db.scalars(
+            select(Platform).options(selectinload(Platform.variants)).order_by(Platform.name)
+        ).all()
+    )
 
 
 def get_platform(db: Session, platform_id: int) -> Platform | None:
