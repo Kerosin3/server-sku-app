@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_role
 from app.db import get_db
+from app.i18n import PLATFORM_EVENT_TYPES
 from app.models import PlatformItem, PlatformVariant, User
+from app.services import platform_events as events_service
 from app.services import platform_items as items_service
 from app.services import platform_variants as variants_service
 from app.templating import templates
@@ -31,6 +33,16 @@ def _detail_context(item: PlatformItem, user: User, error: str | None = None) ->
         "user": user,
         "item": item,
         "checklist": items_service.slot_checklist(item),
+        "error": error,
+    }
+
+
+def _stages_context(db: Session, item: PlatformItem, user: User, error: str | None = None) -> dict:
+    return {
+        "user": user,
+        "item": item,
+        "event_types": PLATFORM_EVENT_TYPES,
+        "recent_events": events_service.list_events(db, item)[:5],
         "error": error,
     }
 
@@ -91,6 +103,17 @@ def item_detail(
     return templates.TemplateResponse(request, "item_detail.html", _detail_context(item, user))
 
 
+@router.get("/items/{item_id}/stages", response_class=HTMLResponse)
+def item_stages(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    item = _get_item_or_404(db, item_id)
+    return templates.TemplateResponse(request, "item_stages.html", _stages_context(db, item, user))
+
+
 @router.get("/items/{item_id}/history", response_class=HTMLResponse)
 def item_history(
     request: Request,
@@ -102,8 +125,46 @@ def item_history(
     return templates.TemplateResponse(
         request,
         "item_history.html",
-        {"user": user, "item": item, "removed": items_service.removed_components(item)},
+        {
+            "user": user,
+            "item": item,
+            "removed": items_service.removed_components(item),
+            "events": events_service.list_events(db, item),
+        },
     )
+
+
+@router.post("/items/{item_id}/events", response_class=HTMLResponse)
+def add_event(
+    request: Request,
+    item_id: int,
+    event_type: str = Form(...),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    try:
+        events_service.record_event(db, actor=user, item=item, event_type=event_type, notes=notes)
+    except events_service.InvalidEventTypeError:
+        raise HTTPException(status_code=400, detail="Unknown event_type")
+    except events_service.RemarksRequiredError:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request,
+            "item_stages.html",
+            _stages_context(db, item, user, error="Опишите замечания в заметке"),
+            status_code=400,
+        )
+    except events_service.PrerequisiteNotMetError as exc:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request,
+            "item_stages.html",
+            _stages_context(db, item, user, error=exc.message),
+            status_code=409,
+        )
+    return RedirectResponse(url=f"/items/{item_id}/stages", status_code=303)
 
 
 @router.post("/items/{item_id}/details", response_class=HTMLResponse)

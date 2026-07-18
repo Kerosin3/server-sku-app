@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Этапы — {{ item.asset_tag }} — Server Tracker{% endblock %}
+{% block content %}
+<p>
+  <a href="/platforms/{{ item.platform_variant.platform.id }}">{{ item.platform_variant.platform.name }}</a> /
+  <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a> /
+  <a href="/items/{{ item.id }}">{{ item.asset_tag }}</a>
+</p>
+<h1>Этапы — {{ item.asset_tag }}</h1>
+<p>Статус: {{ item.status | label('platform_status') }}</p>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+{% if user.role in ('admin', 'engineer') %}
+<table>
+  <tbody>
+    {% for code, event_label in event_types.items() %}
+    <tr>
+      <td>{{ event_label }}</td>
+      <td>
+        <form method="post" action="/items/{{ item.id }}/events" style="display:flex; gap:0.5rem; align-items:center;">
+          <input type="hidden" name="event_type" value="{{ code }}">
+          <input type="text" name="notes" placeholder="{{ 'опишите замечания' if code == 'test_passed_with_remarks' else 'заметка (необязательно)' }}"
+                 {% if code == 'test_passed_with_remarks' %}required{% endif %}>
+          <button type="submit">Отметить</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Последние события</h2>
+<table>
+  <thead>
+    <tr><th>Этап</th><th>Дата</th><th>Пользователь</th><th>Заметка</th></tr>
+  </thead>
+  <tbody>
+    {% for e in recent_events %}
+    <tr>
+      <td>{{ e.event_type | label('platform_event_type') }}</td>
+      <td>{{ e.occurred_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ e.user.username if e.user else "—" }}</td>
+      <td>{{ e.notes or "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Событий пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p><a href="/items/{{ item.id }}/history">Вся история →</a></p>
+
+<p><a href="/items/{{ item.id }}">← К изделию «{{ item.asset_tag }}»</a></p>
+{% endblock %}

@@ -6,8 +6,28 @@
   <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a> /
   <a href="/items/{{ item.id }}">{{ item.asset_tag }}</a>
 </p>
-<h1>История снятых компонентов — {{ item.asset_tag }}</h1>
+<h1>История — {{ item.asset_tag }}</h1>
 
+<h2>Этапы</h2>
+<table>
+  <thead>
+    <tr><th>Этап</th><th>Дата</th><th>Пользователь</th><th>Заметка</th></tr>
+  </thead>
+  <tbody>
+    {% for e in events %}
+    <tr>
+      <td>{{ e.event_type | label('platform_event_type') }}</td>
+      <td>{{ e.occurred_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ e.user.username if e.user else "—" }}</td>
+      <td>{{ e.notes or "—" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Событий пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Снятые компоненты</h2>
 <table>
   <thead>
     <tr><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th>Снято</th></tr>

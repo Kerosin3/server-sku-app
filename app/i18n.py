@@ -53,14 +53,16 @@ PLATFORM_STATUSES = {
 }
 
 # See app/models/platform_event.py — this is the interactive milestone
-# log for a platform instance (manufacture date, QC/verification date,
-# initial and final test dates, ship date, ...). Extensible: add a new
-# event_type code + its Russian label here, no schema migration needed.
+# log for a platform item (completion date, test start/end, ship date,
+# ...). Extensible: add a new event_type code + its Russian label here,
+# no schema migration needed. Order here is the process order and drives
+# the order of milestone buttons on the item page — keep it that way.
 PLATFORM_EVENT_TYPES = {
-    "manufactured": "Изготовлено",
-    "qc_verified": "Проверено (QC)",
-    "initial_test": "Первичное тестирование",
-    "final_test": "Финальное тестирование",
+    "assembled": "Укомплектовано",
+    "test_started": "Тестирование начато",
+    "test_passed": "Тест пройден",
+    "test_passed_with_remarks": "Тест пройден с замечаниями",
+    "test_failed": "Тест не пройден",
     "shipped": "Отгружено",
 }
 

@@ -9,7 +9,7 @@
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
 <p>
-  Статус: {{ item.status | label('platform_status') }}<br>
+  Статус: {{ item.status | label('platform_status') }} — <a href="/items/{{ item.id }}/stages">этапы →</a><br>
   {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
   {% if user.role != 'viewer' %}
   Заказчик: {{ item.customer or "—" }}<br>
@@ -103,7 +103,7 @@
 </form>
 {% endif %}
 
-<p><a href="/items/{{ item.id }}/history">История снятых компонентов →</a></p>
+<p><a href="/items/{{ item.id }}/history">История (этапы и снятые компоненты) →</a></p>
 
 <p><a href="/variants/{{ item.platform_variant.id }}">← К исполнению «{{ item.platform_variant.name }}»</a></p>
 {% endblock %}
