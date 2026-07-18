@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ target.username }} — Server Tracker{% endblock %}
+{% block content %}
+<h1>{{ target.username }}</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+<p>
+  Статус: {{ "Активен" if target.is_active else "Деактивирован" }}<br>
+  Создан: {{ target.created_at.strftime('%Y-%m-%d') }}
+</p>
+
+<h2>Роль</h2>
+<form method="post" action="/users/{{ target.id }}/role">
+  <select name="role">
+    {% for r in roles %}
+    <option value="{{ r }}" {% if r == target.role %}selected{% endif %}>{{ r | label('role') }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Сохранить роль</button>
+</form>
+
+<h2>Доступ</h2>
+{% if target.is_active %}
+<form method="post" action="/users/{{ target.id }}/deactivate">
+  <button type="submit">Деактивировать</button>
+</form>
+{% else %}
+<form method="post" action="/users/{{ target.id }}/activate">
+  <button type="submit">Активировать</button>
+</form>
+{% endif %}
+
+<h2>Сброс пароля</h2>
+<form method="post" action="/users/{{ target.id }}/reset-password">
+  <label>Новый пароль <input type="password" name="new_password" required></label>
+  <button type="submit">Сбросить пароль</button>
+</form>
+
+<p><a href="/users">← К списку пользователей</a></p>
+{% endblock %}

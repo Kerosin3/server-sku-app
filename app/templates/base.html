@@ -10,7 +10,10 @@
   <header>
     <strong>Server Tracker</strong>
     {% if user %}
-      <span>{{ user.username }} ({{ user.role }})</span>
+      <span>{{ user.username }} ({{ user.role | label('role') }})</span>
+      {% if user.role == 'admin' %}
+        <a href="/users">Пользователи</a>
+      {% endif %}
       <form method="post" action="/logout" style="display:inline">
         <button type="submit">Выйти</button>
       </form>

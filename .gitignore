@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 venv/
 .env
+docker-compose.override.yml
 *.egg-info/
 .pytest_cache/
 backups/*.sql

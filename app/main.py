@@ -3,7 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
-from app.routers import auth, platforms, platform_models, part_units, search
+from app.routers import auth, platforms, platform_models, part_units, search, users
 
 app = FastAPI(title="Server Tracker")
 
@@ -16,6 +16,7 @@ app.include_router(platforms.router)
 app.include_router(platform_models.router)
 app.include_router(part_units.router)
 app.include_router(search.router)
+app.include_router(users.router)
 
 
 @app.get("/health")

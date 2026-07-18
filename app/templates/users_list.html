@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — Server Tracker{% endblock %}
+{% block content %}
+<h1>Пользователи</h1>
+
+<p><a href="/users/new">+ Новый пользователь</a></p>
+
+<table>
+  <thead>
+    <tr><th>Логин</th><th>Роль</th><th>Статус</th><th>Создан</th></tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td><a href="/users/{{ u.id }}">{{ u.username }}</a></td>
+      <td>{{ u.role | label('role') }}</td>
+      <td>{{ "Активен" if u.is_active else "Деактивирован" }}</td>
+      <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Пользователей пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
