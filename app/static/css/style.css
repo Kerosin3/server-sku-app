@@ -3,8 +3,31 @@ header { display: flex; gap: 1rem; align-items: center; padding: 0.75rem 1.5rem;
 main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
-input, button, textarea { font-size: 1rem; padding: 0.4rem; }
+input, button, textarea, select { font-size: 1rem; padding: 0.4rem; }
 textarea { font-family: inherit; }
+
+form { max-width: 480px; }
+form br { display: none; }
+form label {
+  display: block;
+  margin-bottom: 0.9rem;
+  font-weight: 500;
+}
+form label input:not([type="checkbox"]),
+form label select,
+form label textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.3rem;
+  font-weight: normal;
+  box-sizing: border-box;
+}
+form label input[type="checkbox"] {
+  width: auto;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+}
+form button[type="submit"] { margin-top: 0.3rem; }
 .columns { display: flex; gap: 2rem; align-items: flex-start; }
 .columns > div { flex: 1; min-width: 0; }
 @media (max-width: 800px) {
