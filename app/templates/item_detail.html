@@ -35,19 +35,18 @@
     <h2>Комплектность</h2>
     <table>
       <thead>
-        <tr><th>Элемент</th><th>Категория</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
+        <tr><th>Элемент</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
       </thead>
       <tbody>
         {% for row in checklist %}
         <tr>
           <td>{{ row.slot.slot_name }}</td>
-          <td>{{ row.slot.category.name }}</td>
           <td>{{ row.slot.quantity if row.slot.required else "опционально" }}</td>
           <td>{{ row.installed }}</td>
           <td>{{ "✓ укомплектовано" if row.complete else "не хватает" }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="5">У исполнения нет элементов</td></tr>
+        <tr><td colspan="4">У исполнения нет элементов</td></tr>
         {% endfor %}
       </tbody>
     </table>
