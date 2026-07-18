@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Server Tracker{% endblock %}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.3/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header>
+    <strong>Server Tracker</strong>
+    {% if user %}
+      <span>{{ user.username }} ({{ user.role }})</span>
+      <form method="post" action="/logout" style="display:inline">
+        <button type="submit">Выйти</button>
+      </form>
+    {% endif %}
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

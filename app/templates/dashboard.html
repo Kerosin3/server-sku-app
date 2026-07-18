@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Платформы</h1>
+
+<input type="search" placeholder="Поиск по серийнику / asset tag"
+       hx-get="/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results">
+<div id="search-results"></div>
+
+<table>
+  <thead>
+    <tr><th>Asset tag</th><th>Модель</th><th>Статус</th><th>Обновлено</th></tr>
+  </thead>
+  <tbody>
+    {% for p in platforms %}
+    <tr>
+      <td><a href="/platforms/{{ p.id }}">{{ p.asset_tag }}</a></td>
+      <td>{{ p.platform_model.name }}</td>
+      <td>{{ p.status | label('platform_status') }}</td>
+      <td>{{ p.updated_at.strftime('%Y-%m-%d') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">Платформ пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><a href="/platform-models">Управление моделями платформ (конструктор)</a></p>
+{% endblock %}

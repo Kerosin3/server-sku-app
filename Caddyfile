@@ -1,0 +1,8 @@
+# Замените на реальный внутренний домен/IP.
+# Caddy сам получит TLS-сертификат, если домен резолвится извне (Let's Encrypt),
+# либо используйте internal-CA режим для чисто внутренней сети:
+# https://caddyserver.com/docs/automatic-https#internal-tls-certificates
+
+tracker.internal.example {
+	reverse_proxy app:8000
+}
