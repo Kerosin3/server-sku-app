@@ -8,12 +8,16 @@
 </head>
 <body>
   <header>
-    <strong>Server Tracker</strong>
+    <a href="/"><strong>Server Tracker</strong></a>
     {% if user %}
-      <span>{{ user.username }} ({{ user.role | label('role') }})</span>
+      <a href="/">Платформы</a>
+      {% if user.role in ('admin', 'engineer') %}
+        <a href="/platform-models">Конструктор</a>
+      {% endif %}
       {% if user.role == 'admin' %}
         <a href="/users">Пользователи</a>
       {% endif %}
+      <span>{{ user.username }} ({{ user.role | label('role') }})</span>
       <form method="post" action="/logout" style="display:inline">
         <button type="submit">Выйти</button>
       </form>

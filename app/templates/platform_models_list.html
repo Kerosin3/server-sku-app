@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Конструктор — Server Tracker{% endblock %}
+{% block content %}
+<h1>Модели платформ (конструктор)</h1>
+
+{% if user.role in ('admin', 'engineer') %}
+<p><a href="/platform-models/new">+ Новая модель</a></p>
+{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Название</th><th>Описание</th><th>Слотов</th></tr>
+  </thead>
+  <tbody>
+    {% for m in models %}
+    <tr>
+      <td><a href="/platform-models/{{ m.id }}">{{ m.name }}</a></td>
+      <td>{{ m.description or "" }}</td>
+      <td>{{ m.slots | length }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Моделей пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

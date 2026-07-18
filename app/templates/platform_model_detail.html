@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}{{ model.name }} — Server Tracker{% endblock %}
+{% block content %}
+<h1>{{ model.name }}</h1>
+{% if model.description %}<p>{{ model.description }}</p>{% endif %}
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+<h2>Слоты</h2>
+<table>
+  <thead>
+    <tr><th>Имя слота</th><th>Категория</th><th>Тип детали</th><th>Кол-во</th><th>Обязателен</th></tr>
+  </thead>
+  <tbody>
+    {% for s in model.slots %}
+    <tr>
+      <td>{{ s.slot_name }}</td>
+      <td>{{ s.category | label('part_category') }}</td>
+      <td>{{ s.part_type.model_name if s.part_type else "любой" }}</td>
+      <td>{{ s.quantity }}</td>
+      <td>{{ "да" if s.required else "нет" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Слотов пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h2>Добавить слот</h2>
+<form method="post" action="/platform-models/{{ model.id }}/slots">
+  <label>Имя слота <input type="text" name="slot_name" required placeholder="напр. MIDPLANE, PSU, CPU"></label><br>
+  <label>Категория
+    <select name="category">
+      {% for code, name in categories.items() %}
+      <option value="{{ code }}">{{ name }}</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label>Тип детали (опционально, если слот жёстко привязан к одной модели)
+    <select name="part_type_id">
+      <option value="">— любой подходящей категории —</option>
+      {% for pt in part_types %}
+      <option value="{{ pt.id }}">{{ pt.category | label('part_category') }} — {{ pt.manufacturer }} {{ pt.model_name }}{% if pt.revision %} ({{ pt.revision }}){% endif %}</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label>Количество <input type="number" name="quantity" value="1" min="1" required></label><br>
+  <label><input type="checkbox" name="required" checked> Обязательный слот</label><br>
+  <button type="submit">Добавить слот</button>
+</form>
+{% endif %}
+
+<p><a href="/platform-models">← К списку моделей</a></p>
+{% endblock %}
