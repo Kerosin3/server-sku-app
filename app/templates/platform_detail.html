@@ -1,113 +1,31 @@
 {% extends "base.html" %}
-{% block title %}{{ platform.asset_tag }} — Server Tracker{% endblock %}
+{% block title %}{{ platform.name }} — Server Tracker{% endblock %}
 {% block content %}
-<h1>{{ platform.asset_tag }}</h1>
-{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<h1>{{ platform.name }}</h1>
+{% if platform.description %}<p>{{ platform.description }}</p>{% endif %}
 
-<p>
-  Модель: <a href="/platform-models/{{ platform.platform_model.id }}">{{ platform.platform_model.name }}</a><br>
-  Статус: {{ platform.status | label('platform_status') }}<br>
-  {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
-  {% if user.role != 'viewer' %}
-  Заказчик: {{ platform.customer or "—" }}<br>
-  {% endif %}
-  Расположение: {{ platform.location or "—" }}<br>
-  Заметки: {{ platform.notes or "—" }}
-</p>
+<h2>Исполнения</h2>
 
 {% if user.role in ('admin', 'engineer') %}
-<details>
-  <summary>Изменить данные платформы</summary>
-  <form method="post" action="/platforms/{{ platform.id }}/details">
-    <label>Заказчик <input type="text" name="customer" value="{{ platform.customer or '' }}"></label><br>
-    <label>Расположение <input type="text" name="location" value="{{ platform.location or '' }}"></label><br>
-    <label>Заметки <input type="text" name="notes" value="{{ platform.notes or '' }}"></label><br>
-    <button type="submit">Сохранить</button>
-  </form>
-</details>
+<p><a href="/platforms/{{ platform.id }}/variants/new">+ Новое исполнение</a></p>
 {% endif %}
 
-<h2>Комплектность (по конструктору модели)</h2>
 <table>
   <thead>
-    <tr><th>Слот</th><th>Категория</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
+    <tr><th>Название</th><th>Описание</th><th>Слотов</th></tr>
   </thead>
   <tbody>
-    {% for row in checklist %}
+    {% for v in platform.variants %}
     <tr>
-      <td>{{ row.slot.slot_name }}</td>
-      <td>{{ row.slot.category | label('part_category') }}</td>
-      <td>{{ row.slot.quantity if row.slot.required else "опционально" }}</td>
-      <td>{{ row.installed }}</td>
-      <td>{{ "✓ укомплектовано" if row.complete else "не хватает" }}</td>
+      <td><a href="/variants/{{ v.id }}">{{ v.name }}</a></td>
+      <td>{{ v.description or "" }}</td>
+      <td>{{ v.slots | length }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="5">У модели нет слотов</td></tr>
+    <tr><td colspan="3">Исполнений пока нет</td></tr>
     {% endfor %}
   </tbody>
 </table>
 
-<h2>Установленные компоненты</h2>
-<table>
-  <thead>
-    <tr><th>Слот</th><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th></th></tr>
-  </thead>
-  <tbody>
-    {% for c in platform.components if c.removed_at is none %}
-    <tr>
-      <td>{{ c.platform_model_slot.slot_name if c.platform_model_slot else "—" }}</td>
-      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
-      <td>{{ c.part_unit.serial_number }}</td>
-      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
-      <td>
-        {% if user.role in ('admin', 'engineer') %}
-        <form method="post" action="/platforms/{{ platform.id }}/components/{{ c.id }}/remove" style="display:inline">
-          <button type="submit">Снять</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5">Компонентов пока не установлено</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-{% if user.role in ('admin', 'engineer') %}
-<h2>Установить компонент</h2>
-<form method="post" action="/platforms/{{ platform.id }}/components">
-  <label>Серийный номер детали <input type="text" name="serial_number" required></label><br>
-  <label>Слот (опционально)
-    <select name="platform_model_slot_id">
-      <option value="">— без привязки к слоту —</option>
-      {% for s in platform.platform_model.slots %}
-      <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category | label('part_category') }})</option>
-      {% endfor %}
-    </select>
-  </label><br>
-  <label>Позиция (опционально, напр. DIMM_A1, CPU0) <input type="text" name="slot_position"></label><br>
-  <button type="submit">Установить</button>
-</form>
-{% endif %}
-
-<h2>История (снятые компоненты)</h2>
-<table>
-  <thead>
-    <tr><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th>Снято</th></tr>
-  </thead>
-  <tbody>
-    {% for c in removed %}
-    <tr>
-      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
-      <td>{{ c.part_unit.serial_number }}</td>
-      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
-      <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="4">История пуста</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-<p><a href="/">← К списку платформ</a></p>
+<p><a href="/platforms">← К списку платформ</a></p>
 {% endblock %}

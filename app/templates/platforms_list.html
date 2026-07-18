@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Платформы — Server Tracker{% endblock %}
+{% block content %}
+<h1>Платформы</h1>
+
+{% if user.role in ('admin', 'engineer') %}
+<p><a href="/platforms/new">+ Новая платформа</a></p>
+{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Название</th><th>Описание</th><th>Исполнений</th></tr>
+  </thead>
+  <tbody>
+    {% for p in platforms %}
+    <tr>
+      <td><a href="/platforms/{{ p.id }}">{{ p.name }}</a></td>
+      <td>{{ p.description or "" }}</td>
+      <td>{{ p.variants | length }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Платформ пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

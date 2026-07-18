@@ -10,10 +10,8 @@
   <header>
     <a href="/"><strong>Server Tracker</strong></a>
     {% if user %}
-      <a href="/">Платформы</a>
-      {% if user.role in ('admin', 'engineer') %}
-        <a href="/platform-models">Конструктор</a>
-      {% endif %}
+      <a href="/">Изделия</a>
+      <a href="/platforms">Платформы</a>
       {% if user.role == 'admin' %}
         <a href="/users">Пользователи</a>
       {% endif %}

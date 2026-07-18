@@ -1,17 +1,18 @@
 {% extends "base.html" %}
-{% block title %}{{ model.name }} — Server Tracker{% endblock %}
+{% block title %}{{ variant.name }} — Server Tracker{% endblock %}
 {% block content %}
-<h1>{{ model.name }}</h1>
-{% if model.description %}<p>{{ model.description }}</p>{% endif %}
+<p><a href="/platforms/{{ variant.platform.id }}">{{ variant.platform.name }}</a></p>
+<h1>{{ variant.name }}</h1>
+{% if variant.description %}<p>{{ variant.description }}</p>{% endif %}
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
-<h2>Слоты</h2>
+<h2>Слоты (конструктор)</h2>
 <table>
   <thead>
     <tr><th>Имя слота</th><th>Категория</th><th>Тип детали</th><th>Кол-во</th><th>Обязателен</th></tr>
   </thead>
   <tbody>
-    {% for s in model.slots %}
+    {% for s in variant.slots %}
     <tr>
       <td>{{ s.slot_name }}</td>
       <td>{{ s.category | label('part_category') }}</td>
@@ -26,8 +27,8 @@
 </table>
 
 {% if user.role in ('admin', 'engineer') %}
-<h2>Добавить слот</h2>
-<form method="post" action="/platform-models/{{ model.id }}/slots">
+<h3>Добавить слот</h3>
+<form method="post" action="/variants/{{ variant.id }}/slots">
   <label>Имя слота <input type="text" name="slot_name" required placeholder="напр. MIDPLANE, PSU, CPU"></label><br>
   <label>Категория
     <select name="category">
@@ -50,5 +51,27 @@
 </form>
 {% endif %}
 
-<p><a href="/platform-models">← К списку моделей</a></p>
+<h2>Изделия этого исполнения</h2>
+
+{% if user.role in ('admin', 'engineer') %}
+<p><a href="/variants/{{ variant.id }}/items/new">+ Новое изделие</a></p>
+{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Asset tag</th><th>Статус</th></tr>
+  </thead>
+  <tbody>
+    {% for i in variant.items %}
+    <tr>
+      <td><a href="/items/{{ i.id }}">{{ i.asset_tag }}</a></td>
+      <td>{{ i.status | label('platform_status') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2">Изделий пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><a href="/platforms/{{ variant.platform.id }}">← К платформе «{{ variant.platform.name }}»</a></p>
 {% endblock %}

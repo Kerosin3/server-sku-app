@@ -34,6 +34,7 @@ PART_CATEGORIES = {
     "ram": "Модуль памяти",
     "riser_card": "Райзер-карта",
     "nic": "Сетевая карта",
+    "disk": "Накопитель (HDD/SSD)",
 }
 
 PART_UNIT_STATUSES = {

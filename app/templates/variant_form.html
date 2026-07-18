@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Новое исполнение — Server Tracker{% endblock %}
+{% block content %}
+<h1>Новое исполнение платформы «{{ platform.name }}»</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<form method="post" action="/platforms/{{ platform.id }}/variants">
+  <label>Название <input type="text" name="name" required placeholder="напр. 24-bay all-flash"></label><br>
+  <label>Описание <input type="text" name="description"></label><br>
+  <button type="submit">Создать</button>
+</form>
+<p><a href="/platforms/{{ platform.id }}">← К платформе «{{ platform.name }}»</a></p>
+{% endblock %}

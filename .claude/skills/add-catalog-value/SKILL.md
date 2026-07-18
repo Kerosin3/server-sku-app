@@ -1,12 +1,12 @@
 ---
 name: add-catalog-value
-description: Use when adding a new status, event type, firmware type, or category value — e.g. a new PlatformEvent.event_type, PartType.category, Platform.status, or FirmwareRecord.firmware_type. Also applies to "добавить новый статус", "новый тип события", "новый тип прошивки", "новая категория детали".
-version: 1.0.0
+description: Use when adding a new status, event type, firmware type, or category value — e.g. a new PlatformEvent.event_type, PartType.category, PlatformItem.status, or FirmwareRecord.firmware_type. Also applies to "добавить новый статус", "новый тип события", "новый тип прошивки", "новая категория детали".
+version: 1.1.0
 ---
 
 # Добавление нового значения статуса/типа/категории
 
-Все backend-коды (`PartType.category`, `Platform.status`,
+Все backend-коды (`PartType.category`, `PlatformItem.status`,
 `PlatformEvent.event_type`, `FirmwareRecord.firmware_type` и т.д.)
 переводятся в русские подписи только через `app/i18n.py`. Это единая
 точка перевода — не хардкодить русскую строку в шаблоне или роутере.
@@ -28,11 +28,11 @@ version: 1.0.0
    (`platform_events`, `firmware_records`), новое значение не требует
    миграции схемы самих таблиц, только регистрации в `i18n.py` и (если
    есть) расширения constraint.
-4. Если новое значение влияет на `platforms.status` (например, новый
-   этап жизненного цикла) — обновить сервисный слой, который
-   синхронизирует `platforms.status` при записи `platform_events`, и
-   добавить соответствующую интерактивную кнопку в UI (карточка
-   платформы), а не форму ручного ввода даты.
+4. Если новое значение влияет на `platform_items.status` (например,
+   новый этап жизненного цикла) — обновить сервисный слой, который
+   синхронизирует `platform_items.status` при записи `platform_events`,
+   и добавить соответствующую интерактивную кнопку в UI (карточка
+   изделия, `/items/{id}`), а не форму ручного ввода даты.
 5. В шаблонах использовать Jinja-фильтр `label`
    (`{{ p.status | label('platform_status') }}`), не выводить
    backend-код напрямую и не дублировать перевод в шаблоне.

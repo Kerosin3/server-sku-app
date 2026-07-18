@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Новое изделие — Server Tracker{% endblock %}
+{% block content %}
+<h1>Новое изделие исполнения «{{ variant.name }}»</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<form method="post" action="/variants/{{ variant.id }}/items">
+  <label>Asset tag <input type="text" name="asset_tag" required></label><br>
+  <label>Заказчик <input type="text" name="customer"></label><br>
+  <label>Расположение <input type="text" name="location"></label><br>
+  <label>Заметки <input type="text" name="notes"></label><br>
+  <button type="submit">Создать</button>
+</form>
+<p><a href="/variants/{{ variant.id }}">← К исполнению «{{ variant.name }}»</a></p>
+{% endblock %}

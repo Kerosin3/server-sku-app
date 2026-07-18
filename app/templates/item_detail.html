@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}{{ item.asset_tag }} — Server Tracker{% endblock %}
+{% block content %}
+<p>
+  <a href="/platforms/{{ item.platform_variant.platform.id }}">{{ item.platform_variant.platform.name }}</a> /
+  <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a>
+</p>
+<h1>{{ item.asset_tag }}</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+<p>
+  Статус: {{ item.status | label('platform_status') }}<br>
+  {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
+  {% if user.role != 'viewer' %}
+  Заказчик: {{ item.customer or "—" }}<br>
+  {% endif %}
+  Расположение: {{ item.location or "—" }}<br>
+  Заметки: {{ item.notes or "—" }}
+</p>
+
+{% if user.role in ('admin', 'engineer') %}
+<details>
+  <summary>Изменить данные изделия</summary>
+  <form method="post" action="/items/{{ item.id }}/details">
+    <label>Заказчик <input type="text" name="customer" value="{{ item.customer or '' }}"></label><br>
+    <label>Расположение <input type="text" name="location" value="{{ item.location or '' }}"></label><br>
+    <label>Заметки <input type="text" name="notes" value="{{ item.notes or '' }}"></label><br>
+    <button type="submit">Сохранить</button>
+  </form>
+</details>
+{% endif %}
+
+<h2>Комплектность (по конструктору исполнения)</h2>
+<table>
+  <thead>
+    <tr><th>Слот</th><th>Категория</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
+  </thead>
+  <tbody>
+    {% for row in checklist %}
+    <tr>
+      <td>{{ row.slot.slot_name }}</td>
+      <td>{{ row.slot.category | label('part_category') }}</td>
+      <td>{{ row.slot.quantity if row.slot.required else "опционально" }}</td>
+      <td>{{ row.installed }}</td>
+      <td>{{ "✓ укомплектовано" if row.complete else "не хватает" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">У исполнения нет слотов</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Установленные компоненты</h2>
+<table>
+  <thead>
+    <tr><th>Слот</th><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for c in item.components if c.removed_at is none %}
+    <tr>
+      <td>{{ c.platform_variant_slot.slot_name if c.platform_variant_slot else "—" }}</td>
+      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>{{ c.part_unit.serial_number }}</td>
+      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/items/{{ item.id }}/components/{{ c.id }}/remove" style="display:inline">
+          <button type="submit">Снять</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5">Компонентов пока не установлено</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h2>Установить компонент</h2>
+<form method="post" action="/items/{{ item.id }}/components">
+  <label>Серийный номер детали <input type="text" name="serial_number" required></label><br>
+  <label>Слот (опционально)
+    <select name="platform_variant_slot_id">
+      <option value="">— без привязки к слоту —</option>
+      {% for s in item.platform_variant.slots %}
+      <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category | label('part_category') }})</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label>Позиция (опционально, напр. DIMM_A1, CPU0) <input type="text" name="slot_position"></label><br>
+  <button type="submit">Установить</button>
+</form>
+{% endif %}
+
+<h2>История (снятые компоненты)</h2>
+<table>
+  <thead>
+    <tr><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th>Снято</th></tr>
+  </thead>
+  <tbody>
+    {% for c in removed %}
+    <tr>
+      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>{{ c.part_unit.serial_number }}</td>
+      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
+      <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">История пуста</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><a href="/variants/{{ item.platform_variant.id }}">← К исполнению «{{ item.platform_variant.name }}»</a></p>
+{% endblock %}

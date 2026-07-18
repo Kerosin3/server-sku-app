@@ -8,17 +8,17 @@ from app.db import Base
 
 class PlatformEvent(Base):
     """
-    Timestamped milestone log for a platform instance: manufacture date,
+    Timestamped milestone log for a platform_item: manufacture date,
     QC/verification date, initial test date, final test date, ship date,
     and so on.
 
-    Deliberately NOT modeled as fixed columns on Platform
+    Deliberately NOT modeled as fixed columns on PlatformItem
     (manufacture_date, qc_date, initial_test_date, final_test_date,
-    ship_date...) — same reasoning as platform_model_slots vs hardcoded
-    board-type columns: a new milestone type must not require a schema
-    migration, and a stage can legitimately happen more than once (e.g.
-    re-tested after an RMA repair) — a single date column cannot represent
-    that, a log naturally does.
+    ship_date...) — same reasoning as platform_variant_slots vs
+    hardcoded board-type columns: a new milestone type must not require a
+    schema migration, and a stage can legitimately happen more than once
+    (e.g. re-tested after an RMA repair) — a single date column cannot
+    represent that, a log naturally does.
 
     This is meant to be recorded interactively: the UI exposes one action
     per milestone (e.g. a "Mark as manufactured" button) that stamps
@@ -31,22 +31,23 @@ class PlatformEvent(Base):
     (PLATFORM_EVENT_TYPES). Current set: manufactured, qc_verified,
     initial_test, final_test, shipped.
 
-    platforms.status stays as a coarse "current stage" field for fast
-    filtering/listing (see Platform model) — the service layer that
-    records a PlatformEvent is responsible for keeping platforms.status in
-    sync (e.g. recording a "shipped" event also sets status="shipped").
-    platform_events is the source of truth for *when* each stage actually
-    happened; platforms.status is a derived, denormalized convenience.
+    platform_items.status stays as a coarse "current stage" field for
+    fast filtering/listing (see PlatformItem model) — the service layer
+    that records a PlatformEvent is responsible for keeping
+    platform_items.status in sync (e.g. recording a "shipped" event also
+    sets status="shipped"). platform_events is the source of truth for
+    *when* each stage actually happened; platform_items.status is a
+    derived, denormalized convenience.
     """
 
     __tablename__ = "platform_events"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"), index=True)
+    platform_item_id: Mapped[int] = mapped_column(ForeignKey("platform_items.id"), index=True)
     event_type: Mapped[str] = mapped_column(String(32), index=True)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    platform: Mapped["Platform"] = relationship(back_populates="events")
+    platform_item: Mapped["PlatformItem"] = relationship(back_populates="events")
