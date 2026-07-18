@@ -112,8 +112,9 @@ def install_component(
     request: Request,
     item_id: int,
     serial_number: str = Form(...),
-    platform_variant_slot_id: str = Form(""),
-    slot_position: str = Form(""),
+    platform_variant_slot_id: int = Form(...),
+    article: str = Form(""),
+    comment: str = Form(""),
     db: Session = Depends(get_db),
     user: User = Depends(require_role("engineer")),
 ):
@@ -124,16 +125,23 @@ def install_component(
             actor=user,
             item=item,
             serial_number=serial_number,
-            platform_variant_slot_id=int(platform_variant_slot_id) if platform_variant_slot_id else None,
-            slot_position=slot_position,
+            platform_variant_slot_id=platform_variant_slot_id,
+            article=article,
+            comment=comment,
         )
-    except items_service.PartUnitNotFoundError:
+    except items_service.SlotNotFoundError:
+        raise HTTPException(status_code=400, detail="Unknown platform_variant_slot_id")
+    except items_service.ArticleRequiredError:
         item = _get_item_or_404(db, item_id)
         return templates.TemplateResponse(
             request,
             "item_detail.html",
-            _detail_context(item, user, error=f"Деталь с серийным номером «{serial_number}» не найдена"),
-            status_code=404,
+            _detail_context(
+                item,
+                user,
+                error=f"Деталь с серийным номером «{serial_number}» не найдена — укажите артикул, чтобы завести новую",
+            ),
+            status_code=400,
         )
     except items_service.PartUnitAlreadyInstalledError:
         item = _get_item_or_404(db, item_id)

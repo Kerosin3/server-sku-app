@@ -59,7 +59,11 @@
     {% for c in item.components if c.removed_at is none %}
     <tr>
       <td>{{ c.platform_variant_slot.slot_name if c.platform_variant_slot else "—" }}</td>
-      <td>{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>
+        {{ c.part_unit.part_type.category.name }} —
+        {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
+        {% if c.part_unit.notes %}<br><small>{{ c.part_unit.notes }}</small>{% endif %}
+      </td>
       <td>{{ c.part_unit.serial_number }}</td>
       <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
       <td>
@@ -79,16 +83,18 @@
 {% if user.role in ('admin', 'engineer') %}
 <h2>Установить компонент</h2>
 <form method="post" action="/items/{{ item.id }}/components">
-  <label>Серийный номер детали <input type="text" name="serial_number" required></label><br>
-  <label>Элемент (опционально)
-    <select name="platform_variant_slot_id">
-      <option value="">— без привязки к элементу —</option>
+  <label>Элемент
+    <select name="platform_variant_slot_id" required>
+      <option value="" disabled selected>— выберите элемент —</option>
       {% for s in item.platform_variant.slots %}
       <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category.name }})</option>
       {% endfor %}
     </select>
   </label><br>
-  <label>Позиция (опционально, напр. DIMM_A1, CPU0) <input type="text" name="slot_position"></label><br>
+  <label>Серийный номер детали <input type="text" name="serial_number" required></label><br>
+  <label>Артикул (если детали с таким серийником ещё нет — заведёт новую; не нужен, если элемент жёстко привязан к типу детали)
+    <input type="text" name="article" placeholder="напр. Xeon Gold 6338"></label><br>
+  <label>Комментарий <input type="text" name="comment"></label><br>
   <button type="submit">Установить</button>
 </form>
 {% endif %}
@@ -101,7 +107,10 @@
   <tbody>
     {% for c in removed %}
     <tr>
-      <td>{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>
+        {{ c.part_unit.part_type.category.name }} —
+        {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
+      </td>
       <td>{{ c.part_unit.serial_number }}</td>
       <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
       <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>

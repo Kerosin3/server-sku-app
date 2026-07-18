@@ -6,7 +6,7 @@ AGENTS.md.
 """
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
@@ -29,8 +29,12 @@ class AssetTagTakenError(Exception):
     pass
 
 
-class PartUnitNotFoundError(Exception):
+class SlotNotFoundError(Exception):
     pass
+
+
+class ArticleRequiredError(Exception):
+    """Serial number is unknown and no article was given to register a new part."""
 
 
 class PartUnitAlreadyInstalledError(Exception):
@@ -153,18 +157,62 @@ def update_details(
     return item
 
 
+def _find_or_create_part_unit(
+    db: Session, *, slot: PlatformVariantSlot, serial_number: str, article: str | None, comment: str | None
+) -> PartUnit:
+    """
+    part_types/part_units have no CRUD of their own yet (AGENTS.md roadmap
+    item 2), so a never-before-seen serial number is registered here on
+    the fly: reuse the slot's part_type if it's hard-pinned, otherwise
+    find-or-create a PartType by (category, article) within the slot's
+    category. `article` is only required in that second case.
+    """
+    if slot.part_type_id is not None:
+        part_type_id = slot.part_type_id
+    else:
+        if not article:
+            raise ArticleRequiredError(serial_number)
+        part_type = db.scalar(
+            select(PartType).where(
+                PartType.category_id == slot.category_id, func.lower(PartType.model_name) == article.lower()
+            )
+        )
+        if part_type is None:
+            part_type = PartType(category_id=slot.category_id, manufacturer="", model_name=article)
+            db.add(part_type)
+            db.flush()
+        part_type_id = part_type.id
+
+    part_unit = PartUnit(part_type_id=part_type_id, serial_number=serial_number, notes=comment or None)
+    db.add(part_unit)
+    db.flush()
+    return part_unit
+
+
 def install_component(
     db: Session,
     *,
     actor: User,
     item: PlatformItem,
     serial_number: str,
-    platform_variant_slot_id: int | None,
-    slot_position: str | None,
+    platform_variant_slot_id: int,
+    article: str | None,
+    comment: str | None,
 ) -> PlatformComponent:
+    slot = db.scalar(
+        select(PlatformVariantSlot).where(
+            PlatformVariantSlot.id == platform_variant_slot_id,
+            PlatformVariantSlot.platform_variant_id == item.platform_variant_id,
+        )
+    )
+    if slot is None:
+        raise SlotNotFoundError(platform_variant_slot_id)
+
     part_unit = db.scalar(select(PartUnit).where(PartUnit.serial_number == serial_number))
     if part_unit is None:
-        raise PartUnitNotFoundError(serial_number)
+        part_unit = _find_or_create_part_unit(
+            db, slot=slot, serial_number=serial_number, article=article, comment=comment
+        )
 
     already_installed = db.scalar(
         select(PlatformComponent).where(
@@ -179,7 +227,6 @@ def install_component(
         platform_item_id=item.id,
         part_unit_id=part_unit.id,
         platform_variant_slot_id=platform_variant_slot_id,
-        slot_position=slot_position or None,
         installed_at=now,
     )
     db.add(component)
