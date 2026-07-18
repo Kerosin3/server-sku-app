@@ -46,7 +46,7 @@ class PlatformVariantSlot(Base):
     part model (typical for midplane/backplane — they're usually not
     interchangeable across chassis revisions). If any part of the right
     category will do (e.g. any manufacturer's DIMM) — leave part_type_id
-    empty and rely on category alone.
+    empty and rely on category_id alone.
     """
 
     __tablename__ = "platform_variant_slots"
@@ -57,10 +57,11 @@ class PlatformVariantSlot(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     platform_variant_id: Mapped[int] = mapped_column(ForeignKey("platform_variants.id"), index=True)
     slot_name: Mapped[str] = mapped_column(String(64))
-    category: Mapped[str] = mapped_column(String(32))  # matches part_types.category
+    category_id: Mapped[int] = mapped_column(ForeignKey("part_categories.id"))  # matches part_types.category_id
     part_type_id: Mapped[int | None] = mapped_column(ForeignKey("part_types.id"), nullable=True)
     quantity: Mapped[int] = mapped_column(Integer, default=1)
     required: Mapped[bool] = mapped_column(Boolean, default=True)
 
     platform_variant: Mapped["PlatformVariant"] = relationship(back_populates="slots")
+    category: Mapped["PartCategory"] = relationship()
     part_type: Mapped["PartType | None"] = relationship()

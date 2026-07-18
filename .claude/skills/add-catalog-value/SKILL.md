@@ -1,15 +1,22 @@
 ---
 name: add-catalog-value
-description: Use when adding a new status, event type, firmware type, or category value — e.g. a new PlatformEvent.event_type, PartType.category, PlatformItem.status, or FirmwareRecord.firmware_type. Also applies to "добавить новый статус", "новый тип события", "новый тип прошивки", "новая категория детали".
-version: 1.1.0
+description: Use when adding a new status, event type, or firmware type value — e.g. a new PlatformEvent.event_type, PlatformItem.status, or FirmwareRecord.firmware_type. Does NOT apply to part categories (those are user-editable DB data via /part-categories, not a hardcoded enum — see AGENTS.md "Категории деталей"). Also applies to "добавить новый статус", "новый тип события", "новый тип прошивки".
+version: 1.2.0
 ---
 
-# Добавление нового значения статуса/типа/категории
+# Добавление нового значения статуса/типа
 
-Все backend-коды (`PartType.category`, `PlatformItem.status`,
-`PlatformEvent.event_type`, `FirmwareRecord.firmware_type` и т.д.)
-переводятся в русские подписи только через `app/i18n.py`. Это единая
-точка перевода — не хардкодить русскую строку в шаблоне или роутере.
+Все backend-коды (`PlatformItem.status`, `PlatformEvent.event_type`,
+`FirmwareRecord.firmware_type` и т.д.) переводятся в русские подписи
+только через `app/i18n.py`. Это единая точка перевода — не хардкодить
+русскую строку в шаблоне или роутере.
+
+**Категории деталей (`part_categories`) сюда не относятся** — это
+единственное исключение из этого паттерна в проекте: живые данные в
+БД, редактируемые пользователем через `/part-categories` (и инлайн на
+`/variants/{id}`), а не Python-словарь. Не добавлять новую категорию
+в `app/i18n.py` — просто создать строку в `part_categories` (через UI
+или, если нужно программно, `app/services/part_categories.py`).
 
 ## Шаги
 

@@ -1,4 +1,4 @@
-from sqlalchemy import String
+from sqlalchemy import String, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,10 +25,11 @@ class PartType(Base):
     __tablename__ = "part_types"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    category: Mapped[str] = mapped_column(String(32), index=True)  # chassis|motherboard|midplane|backplane_front|backplane_rear|io_board|usb_board|psu|cpu|ram|riser_card|nic|...
+    category_id: Mapped[int] = mapped_column(ForeignKey("part_categories.id"), index=True)
     manufacturer: Mapped[str] = mapped_column(String(128))
     model_name: Mapped[str] = mapped_column(String(128))
     revision: Mapped[str | None] = mapped_column(String(32), nullable=True)
     specs: Mapped[dict] = mapped_column(JSONB, default=dict)
 
+    category: Mapped["PartCategory"] = relationship()
     part_units: Mapped[list["PartUnit"]] = relationship(back_populates="part_type")

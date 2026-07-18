@@ -9,7 +9,15 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import PartUnit, PlatformComponent, PlatformItem, PlatformVariant, User
+from app.models import (
+    PartType,
+    PartUnit,
+    PlatformComponent,
+    PlatformItem,
+    PlatformVariant,
+    PlatformVariantSlot,
+    User,
+)
 from app.services import audit
 
 
@@ -37,10 +45,17 @@ def get_item(db: Session, item_id: int) -> PlatformItem | None:
     return db.scalar(
         select(PlatformItem)
         .options(
-            selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.slots),
+            selectinload(PlatformItem.platform_variant)
+            .selectinload(PlatformVariant.slots)
+            .selectinload(PlatformVariantSlot.category),
             selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.platform),
-            selectinload(PlatformItem.components).selectinload(PlatformComponent.part_unit),
-            selectinload(PlatformItem.components).selectinload(PlatformComponent.platform_variant_slot),
+            selectinload(PlatformItem.components)
+            .selectinload(PlatformComponent.part_unit)
+            .selectinload(PartUnit.part_type)
+            .selectinload(PartType.category),
+            selectinload(PlatformItem.components)
+            .selectinload(PlatformComponent.platform_variant_slot)
+            .selectinload(PlatformVariantSlot.category),
         )
         .where(PlatformItem.id == item_id)
     )

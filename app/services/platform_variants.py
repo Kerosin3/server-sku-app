@@ -9,8 +9,7 @@ data, not inventory state.
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.i18n import PART_CATEGORIES
-from app.models import Platform, PlatformVariant, PlatformVariantSlot
+from app.models import PartCategory, Platform, PlatformVariant, PlatformVariantSlot
 
 
 class VariantNameTakenError(Exception):
@@ -21,7 +20,7 @@ class SlotNameTakenError(Exception):
     pass
 
 
-class InvalidCategoryError(Exception):
+class CategoryNotFoundError(Exception):
     pass
 
 
@@ -29,6 +28,7 @@ def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
     return db.scalar(
         select(PlatformVariant)
         .options(
+            selectinload(PlatformVariant.slots).selectinload(PlatformVariantSlot.category),
             selectinload(PlatformVariant.slots).selectinload(PlatformVariantSlot.part_type),
             selectinload(PlatformVariant.platform),
             selectinload(PlatformVariant.items),
@@ -55,13 +55,13 @@ def add_slot(
     *,
     variant: PlatformVariant,
     slot_name: str,
-    category: str,
+    category_id: int,
     part_type_id: int | None,
     quantity: int,
     required: bool,
 ) -> PlatformVariantSlot:
-    if category not in PART_CATEGORIES:
-        raise InvalidCategoryError(category)
+    if db.get(PartCategory, category_id) is None:
+        raise CategoryNotFoundError(category_id)
     if db.scalar(
         select(PlatformVariantSlot).where(
             PlatformVariantSlot.platform_variant_id == variant.id, PlatformVariantSlot.slot_name == slot_name
@@ -72,7 +72,7 @@ def add_slot(
     slot = PlatformVariantSlot(
         platform_variant_id=variant.id,
         slot_name=slot_name,
-        category=category,
+        category_id=category_id,
         part_type_id=part_type_id,
         quantity=quantity,
         required=required,

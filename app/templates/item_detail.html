@@ -39,7 +39,7 @@
     {% for row in checklist %}
     <tr>
       <td>{{ row.slot.slot_name }}</td>
-      <td>{{ row.slot.category | label('part_category') }}</td>
+      <td>{{ row.slot.category.name }}</td>
       <td>{{ row.slot.quantity if row.slot.required else "опционально" }}</td>
       <td>{{ row.installed }}</td>
       <td>{{ "✓ укомплектовано" if row.complete else "не хватает" }}</td>
@@ -59,7 +59,7 @@
     {% for c in item.components if c.removed_at is none %}
     <tr>
       <td>{{ c.platform_variant_slot.slot_name if c.platform_variant_slot else "—" }}</td>
-      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
       <td>{{ c.part_unit.serial_number }}</td>
       <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
       <td>
@@ -84,7 +84,7 @@
     <select name="platform_variant_slot_id">
       <option value="">— без привязки к слоту —</option>
       {% for s in item.platform_variant.slots %}
-      <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category | label('part_category') }})</option>
+      <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category.name }})</option>
       {% endfor %}
     </select>
   </label><br>
@@ -101,7 +101,7 @@
   <tbody>
     {% for c in removed %}
     <tr>
-      <td>{{ c.part_unit.part_type.category | label('part_category') }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
+      <td>{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.part_type.manufacturer }} {{ c.part_unit.part_type.model_name }}</td>
       <td>{{ c.part_unit.serial_number }}</td>
       <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
       <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>

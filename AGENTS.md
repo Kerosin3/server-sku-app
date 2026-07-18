@@ -26,11 +26,13 @@
   имена колонок БД, значения enum/status-кодов, CLI-скрипты,
   сообщения в логах) — **на английском языке**.
 - Единая точка перевода backend-кодов в русские подписи —
-  `app/i18n.py`. Любой новый код (`PartType.category`,
-  `Platform.status`, `PlatformEvent.event_type` и т.д.) добавляется
-  туда же самим изменением, которое его вводит. Никогда не хардкодить
-  переведённую строку прямо в шаблоне или роутере — искать/добавлять
-  перевод только через `app/i18n.py`.
+  `app/i18n.py`. Любой новый код (`PlatformItem.status`,
+  `PlatformEvent.event_type` и т.д.) добавляется туда же самим
+  изменением, которое его вводит. Никогда не хардкодить переведённую
+  строку прямо в шаблоне или роутере — искать/добавлять перевод только
+  через `app/i18n.py`. Исключение — категории деталей
+  (`part_categories`), это пользовательский каталог в БД, а не
+  захардкоженный enum, см. «Категории деталей» ниже.
 - Jinja-фильтр `label` уже зарегистрирован в `app/templating.py`
   (`{{ p.status | label('platform_status') }}`). Импортировать
   `templates` из `app.templating` во всех роутерах, не создавать
@@ -102,6 +104,30 @@ UI-путь строго вложенный: `/platforms` (список плат
 («Изделия») — глобальный дашборд по всем изделиям сразу с поиском по
 серийнику/asset tag, для быстрого оперативного доступа в обход
 иерархии.
+
+### Категории деталей (`part_categories`) — пользовательский каталог, не enum
+
+В отличие от всех остальных кодов в проекте (роли, статусы, типы
+событий/прошивок — см. «Языковая конвенция»), категории деталей **не**
+захардкожены в `app/i18n.py`. Они живут в таблице `part_categories`
+(`name`, `group`) и редактируются прямо из интерфейса на
+`/part-categories`, а также инлайн-формой «+ Добавить свою категорию»
+на странице исполнения (`/variants/{id}`) — новую физическую форм-фактор
+детали инженер заводит сам за 10 секунд, без участия агента/разработчика
+и без деплоя. `name` — сразу русский текст (как `Platform.name`), без
+отдельного английского кода.
+
+Две фиксированные группы (`group`, значения `custom`/`purchased`,
+подписи — `PART_CATEGORY_GROUPS` в `app/i18n.py`):
+- **`purchased`** («Покупное») — готовые компоненты с рынка: PCIe/OCP
+  карты, DDR, CPU, PSU, SSD M.2, диски LFF/SFF, райзер-карты.
+- **`custom`** («В составе изделия») — платы собственной разработки,
+  часть конструкции самого изделия: материнская плата, шасси, мидплейн,
+  бэкплейн (передний/задний), IO-плата, USB-плата.
+
+`part_types.category_id` и `platform_variant_slots.category_id` — обе
+FK на `part_categories.id`, это единый список категорий и для каталога
+деталей, и для слотов конструктора.
 
 ### Название и ревизия платы
 
@@ -179,11 +205,11 @@ service-слое перед записью, не полагаться на фо�
 ## Схема данных
 
 См. `alembic/versions/0001_initial_schema.py` — это источник истины
-по схеме. Таблицы: users, part_types, part_units, firmware_records,
-platforms, platform_variants, platform_variant_slots, platform_items,
-platform_components, platform_events, mac_addresses, audit_log (12
-таблиц; platforms/platform_variants/platform_items — иерархия
-Платформа→Исполнение→Изделие, см. выше).
+по схеме. Таблицы: users, part_categories, part_types, part_units,
+firmware_records, platforms, platform_variants, platform_variant_slots,
+platform_items, platform_components, platform_events, mac_addresses,
+audit_log (13 таблиц; platforms/platform_variants/platform_items —
+иерархия Платформа→Исполнение→Изделие, см. выше).
 
 ## Роли и доступ
 

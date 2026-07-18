@@ -7,12 +7,16 @@ Project-wide language convention:
 - Everything else — Python identifiers, comments, docstrings, DB column
   and enum/status code values, CLI scripts, log messages — is in English.
 
-Whenever a new enum/status/category code is introduced anywhere in the
-codebase (new PartType.category value, new Platform.status value, new
-PlatformEvent.event_type, etc.), add its Russian label here in the same
-change. Never hardcode a translated string inline in a template or
-router — always go through this module, so there is exactly one place
-to check/update for correctness.
+Whenever a new enum/status code is introduced anywhere in the codebase
+(new PlatformItem.status value, new PlatformEvent.event_type, etc.), add
+its Russian label here in the same change. Never hardcode a translated
+string inline in a template or router — always go through this module,
+so there is exactly one place to check/update for correctness.
+
+Exception: part categories (app/models/part_category.py) are NOT here —
+they're user-editable catalog data in the part_categories table, not a
+Python-hardcoded enum. See PART_CATEGORY_GROUPS below for the two fixed
+groups a category can belong to.
 """
 
 USER_ROLES = {
@@ -21,20 +25,14 @@ USER_ROLES = {
     "viewer": "Наблюдатель",
 }
 
-PART_CATEGORIES = {
-    "chassis": "Шасси",
-    "motherboard": "Материнская плата",
-    "midplane": "Мидплейн",
-    "backplane_front": "Бэкплейн (передний)",
-    "backplane_rear": "Бэкплейн (задний)",
-    "io_board": "IO-плата",
-    "usb_board": "USB-плата",
-    "psu": "Блок питания",
-    "cpu": "Процессор",
-    "ram": "Модуль памяти",
-    "riser_card": "Райзер-карта",
-    "nic": "Сетевая карта",
-    "disk": "Накопитель (HDD/SSD)",
+# NOTE: part categories are NOT here. Unlike every other dictionary in
+# this module, part categories are live data in the part_categories
+# table (app/models/part_category.py), editable through /part-categories
+# — engineers add new physical shapes themselves, no code deploy needed.
+# Only the two fixed *groups* a category can belong to get a label here.
+PART_CATEGORY_GROUPS = {
+    "custom": "В составе изделия",
+    "purchased": "Покупное",
 }
 
 PART_UNIT_STATUSES = {
@@ -83,7 +81,7 @@ FIRMWARE_IMAGE_SLOTS = {
 
 _REGISTRY = {
     "role": USER_ROLES,
-    "part_category": PART_CATEGORIES,
+    "part_category_group": PART_CATEGORY_GROUPS,
     "part_unit_status": PART_UNIT_STATUSES,
     "platform_status": PLATFORM_STATUSES,
     "platform_event_type": PLATFORM_EVENT_TYPES,

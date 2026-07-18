@@ -15,7 +15,7 @@
     {% for s in variant.slots %}
     <tr>
       <td>{{ s.slot_name }}</td>
-      <td>{{ s.category | label('part_category') }}</td>
+      <td>{{ s.category.name }}</td>
       <td>{{ s.part_type.model_name if s.part_type else "любой" }}</td>
       <td>{{ s.quantity }}</td>
       <td>{{ "да" if s.required else "нет" }}</td>
@@ -31,17 +31,24 @@
 <form method="post" action="/variants/{{ variant.id }}/slots">
   <label>Имя слота <input type="text" name="slot_name" required placeholder="напр. MIDPLANE, PSU, CPU"></label><br>
   <label>Категория
-    <select name="category">
-      {% for code, name in categories.items() %}
-      <option value="{{ code }}">{{ name }}</option>
-      {% endfor %}
+    <select name="category_id">
+      <optgroup label="Покупное">
+        {% for c in categories if c.group == 'purchased' %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </optgroup>
+      <optgroup label="В составе изделия">
+        {% for c in categories if c.group == 'custom' %}
+        <option value="{{ c.id }}">{{ c.name }}</option>
+        {% endfor %}
+      </optgroup>
     </select>
   </label><br>
   <label>Тип детали (опционально, если слот жёстко привязан к одной модели)
     <select name="part_type_id">
       <option value="">— любой подходящей категории —</option>
       {% for pt in part_types %}
-      <option value="{{ pt.id }}">{{ pt.category | label('part_category') }} — {{ pt.manufacturer }} {{ pt.model_name }}{% if pt.revision %} ({{ pt.revision }}){% endif %}</option>
+      <option value="{{ pt.id }}">{{ pt.category.name }} — {{ pt.manufacturer }} {{ pt.model_name }}{% if pt.revision %} ({{ pt.revision }}){% endif %}</option>
       {% endfor %}
     </select>
   </label><br>
@@ -49,6 +56,21 @@
   <label><input type="checkbox" name="required" checked> Обязательный слот</label><br>
   <button type="submit">Добавить слот</button>
 </form>
+
+<details>
+  <summary>+ Добавить свою категорию</summary>
+  <form method="post" action="/part-categories">
+    <input type="hidden" name="next" value="/variants/{{ variant.id }}">
+    <label>Название <input type="text" name="name" required placeholder="напр. Мидплейн OCP"></label><br>
+    <label>Группа
+      <select name="group">
+        <option value="purchased">Покупное</option>
+        <option value="custom">В составе изделия</option>
+      </select>
+    </label><br>
+    <button type="submit">Добавить категорию</button>
+  </form>
+</details>
 {% endif %}
 
 <h2>Изделия этого исполнения</h2>

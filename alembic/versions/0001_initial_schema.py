@@ -27,16 +27,31 @@ def upgrade() -> None:
     )
     op.create_index("ix_users_username", "users", ["username"], unique=True)
 
+    # part_categories is user-editable catalog data (see AGENTS.md
+    # "Категории деталей"), not a Python-hardcoded enum like other
+    # status/type codes — engineers add new categories through the UI
+    # (/part-categories) as new part shapes show up, no code change or
+    # deploy needed. group is "custom" (proprietary board, part of the
+    # item's own design) or "purchased" (off-the-shelf component).
+    op.create_table(
+        "part_categories",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(64), nullable=False),
+        sa.Column("group", sa.String(16), nullable=False),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+    )
+    op.create_index("ix_part_categories_name", "part_categories", ["name"], unique=True)
+
     op.create_table(
         "part_types",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("category", sa.String(32), nullable=False),
+        sa.Column("category_id", sa.Integer(), sa.ForeignKey("part_categories.id"), nullable=False),
         sa.Column("manufacturer", sa.String(128), nullable=False),
         sa.Column("model_name", sa.String(128), nullable=False),
         sa.Column("revision", sa.String(32), nullable=True),
         sa.Column("specs", postgresql.JSONB(), nullable=False, server_default="{}"),
     )
-    op.create_index("ix_part_types_category", "part_types", ["category"])
+    op.create_index("ix_part_types_category_id", "part_types", ["category_id"])
 
     op.create_table(
         "part_units",
@@ -101,7 +116,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=False),
         sa.Column("slot_name", sa.String(64), nullable=False),
-        sa.Column("category", sa.String(32), nullable=False),
+        sa.Column("category_id", sa.Integer(), sa.ForeignKey("part_categories.id"), nullable=False),
         sa.Column("part_type_id", sa.Integer(), sa.ForeignKey("part_types.id"), nullable=True),
         sa.Column("quantity", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
@@ -188,6 +203,36 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
 
+    # Starter set of part categories — fully editable/extensible via the
+    # /part-categories UI afterward, this is just a reasonable default so
+    # the constructor isn't empty on first use.
+    part_categories_table = sa.table(
+        "part_categories",
+        sa.column("name", sa.String),
+        sa.column("group", sa.String),
+    )
+    op.bulk_insert(
+        part_categories_table,
+        [
+            {"name": "PCIe карта", "group": "purchased"},
+            {"name": "OCP карта", "group": "purchased"},
+            {"name": "DDR", "group": "purchased"},
+            {"name": "CPU", "group": "purchased"},
+            {"name": "PSU", "group": "purchased"},
+            {"name": "SSD M.2", "group": "purchased"},
+            {"name": "Диск LFF", "group": "purchased"},
+            {"name": "Диск SFF", "group": "purchased"},
+            {"name": "Райзер-карта", "group": "purchased"},
+            {"name": "Материнская плата", "group": "custom"},
+            {"name": "Шасси", "group": "custom"},
+            {"name": "Мидплейн", "group": "custom"},
+            {"name": "Бэкплейн (передний)", "group": "custom"},
+            {"name": "Бэкплейн (задний)", "group": "custom"},
+            {"name": "IO-плата", "group": "custom"},
+            {"name": "USB-плата", "group": "custom"},
+        ],
+    )
+
 
 def downgrade() -> None:
     op.drop_table("audit_log")
@@ -218,7 +263,9 @@ def downgrade() -> None:
     op.drop_index("ix_firmware_records_part_unit_id", table_name="firmware_records")
     op.drop_table("firmware_records")
     op.drop_table("part_units")
-    op.drop_index("ix_part_types_category", table_name="part_types")
+    op.drop_index("ix_part_types_category_id", table_name="part_types")
     op.drop_table("part_types")
+    op.drop_index("ix_part_categories_name", table_name="part_categories")
+    op.drop_table("part_categories")
     op.drop_index("ix_users_username", table_name="users")
     op.drop_table("users")

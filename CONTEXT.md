@@ -46,11 +46,14 @@ Compose + Caddy.
 
 4. **Схема — источник истины.**
    `alembic/versions/0001_initial_schema.py`. Полностью сверена с
-   моделями (12 таблиц: users, part_types, part_units, firmware_records,
-   platforms, platform_variants, platform_variant_slots, platform_items,
-   platform_components, platform_events, mac_addresses, audit_log) —
-   колонки, nullable, unique/check-constraints и индексы совпадают 1:1,
-   downgrade() корректен по порядку FK-зависимостей.
+   моделями (13 таблиц: users, part_categories, part_types, part_units,
+   firmware_records, platforms, platform_variants, platform_variant_slots,
+   platform_items, platform_components, platform_events, mac_addresses,
+   audit_log) — колонки, nullable, unique/check-constraints и индексы
+   совпадают 1:1, downgrade() корректен по порядку FK-зависимостей.
+   `part_categories` — исключение из «языковой конвенции»: это
+   пользовательский каталог, редактируемый из UI, а не захардкоженный в
+   коде enum, см. AGENTS.md «Категории деталей».
 
 5. **Сохранность данных при изменениях.** БД и код будут меняться
    постоянно — это норма, а не исключение. Любая миграция/рефакторинг,

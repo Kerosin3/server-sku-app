@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import require_role
 from app.db import get_db
-from app.i18n import PART_CATEGORIES
 from app.models import PartType, Platform, PlatformVariant, User
+from app.services import part_categories as categories_service
 from app.services import platforms as platforms_service
 from app.services import platform_variants as variants_service
 from app.templating import templates
@@ -26,6 +26,19 @@ def _get_variant_or_404(db: Session, variant_id: int) -> PlatformVariant:
     if variant is None:
         raise HTTPException(status_code=404, detail="Platform variant not found")
     return variant
+
+
+def _variant_detail_context(db: Session, variant: PlatformVariant, user: User, error: str | None = None) -> dict:
+    part_types = db.scalars(
+        select(PartType).options(selectinload(PartType.category)).order_by(PartType.category_id, PartType.model_name)
+    ).all()
+    return {
+        "user": user,
+        "variant": variant,
+        "part_types": part_types,
+        "categories": categories_service.list_categories(db),
+        "error": error,
+    }
 
 
 @router.get("/platforms/{platform_id}/variants/new", response_class=HTMLResponse)
@@ -71,17 +84,8 @@ def variant_detail(
     user: User = Depends(require_role("viewer")),
 ):
     variant = _get_variant_or_404(db, variant_id)
-    part_types = db.scalars(select(PartType).order_by(PartType.category, PartType.model_name)).all()
     return templates.TemplateResponse(
-        request,
-        "variant_detail.html",
-        {
-            "user": user,
-            "variant": variant,
-            "part_types": part_types,
-            "categories": PART_CATEGORIES,
-            "error": None,
-        },
+        request, "variant_detail.html", _variant_detail_context(db, variant, user)
     )
 
 
@@ -90,7 +94,7 @@ def add_slot(
     request: Request,
     variant_id: int,
     slot_name: str = Form(...),
-    category: str = Form(...),
+    category_id: int = Form(...),
     part_type_id: str = Form(""),
     quantity: int = Form(1),
     required: bool = Form(False),
@@ -103,28 +107,22 @@ def add_slot(
             db,
             variant=variant,
             slot_name=slot_name,
-            category=category,
+            category_id=category_id,
             part_type_id=int(part_type_id) if part_type_id else None,
             quantity=quantity,
             required=required,
         )
-    except (variants_service.SlotNameTakenError, variants_service.InvalidCategoryError) as exc:
+    except (variants_service.SlotNameTakenError, variants_service.CategoryNotFoundError) as exc:
         error = (
             "Слот с таким именем уже есть в этом исполнении"
             if isinstance(exc, variants_service.SlotNameTakenError)
-            else "Недопустимая категория"
+            else "Категория не найдена"
         )
-        part_types = db.scalars(select(PartType).order_by(PartType.category, PartType.model_name)).all()
+        variant = _get_variant_or_404(db, variant_id)
         return templates.TemplateResponse(
             request,
             "variant_detail.html",
-            {
-                "user": user,
-                "variant": variant,
-                "part_types": part_types,
-                "categories": PART_CATEGORIES,
-                "error": error,
-            },
+            _variant_detail_context(db, variant, user, error=error),
             status_code=409 if isinstance(exc, variants_service.SlotNameTakenError) else 400,
         )
     return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
