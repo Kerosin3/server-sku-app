@@ -36,7 +36,7 @@
     <h2>Комплектность</h2>
     <table>
       <thead>
-        <tr><th>Элемент</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
+        <tr><th>Обозначение</th><th>Нужно</th><th>Установлено</th><th>Статус</th></tr>
       </thead>
       <tbody>
         {% for row in checklist %}
@@ -47,7 +47,7 @@
           <td>{{ "✓ укомплектовано" if row.complete else "не хватает" }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="4">У исполнения нет элементов</td></tr>
+        <tr><td colspan="4">У исполнения нет обозначений</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -57,7 +57,7 @@
     <h2>Установленные компоненты</h2>
     <table>
       <thead>
-        <tr><th>Элемент</th><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th></th></tr>
+        <tr><th>Обозначение</th><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th></th></tr>
       </thead>
       <tbody>
         {% for c in item.components if c.removed_at is none %}
@@ -89,9 +89,9 @@
 {% if user.role in ('admin', 'engineer') %}
 <h2>Установить компонент</h2>
 <form method="post" action="/items/{{ item.id }}/components">
-  <label>Элемент
+  <label>Обозначение
     <select name="platform_variant_slot_id" required>
-      <option value="" disabled selected>— выберите элемент —</option>
+      <option value="" disabled selected>— выберите обозначение —</option>
       {% for s in item.platform_variant.slots %}
       <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category.name }})</option>
       {% endfor %}
