@@ -158,7 +158,6 @@ def upgrade() -> None:
         sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=False),
         sa.Column("slot_name", sa.String(64), nullable=False),
         sa.Column("category_id", sa.Integer(), sa.ForeignKey("part_categories.id"), nullable=False),
-        sa.Column("part_type_id", sa.Integer(), sa.ForeignKey("part_types.id"), nullable=True),
         sa.Column("quantity", sa.Integer(), nullable=False, server_default="1"),
         sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.UniqueConstraint("platform_variant_id", "slot_name", name="uq_platform_variant_slot_name"),

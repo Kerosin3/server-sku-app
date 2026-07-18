@@ -9,19 +9,18 @@
 <h2>Элементы изделия (конструктор)</h2>
 <table>
   <thead>
-    <tr><th>Название элемента</th><th>Категория</th><th>Тип детали</th><th>Кол-во</th><th>Обязателен</th></tr>
+    <tr><th>Название элемента</th><th>Категория</th><th>Кол-во</th><th>Обязателен</th></tr>
   </thead>
   <tbody>
     {% for s in variant.slots %}
     <tr>
       <td>{{ s.slot_name }}</td>
       <td>{{ s.category.name }}</td>
-      <td>{{ s.part_type.model_name if s.part_type else "любой" }}</td>
       <td>{{ s.quantity }}</td>
       <td>{{ "да" if s.required else "нет" }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="5">Элементов пока нет</td></tr>
+    <tr><td colspan="4">Элементов пока нет</td></tr>
     {% endfor %}
   </tbody>
 </table>
@@ -42,14 +41,6 @@
         <option value="{{ c.id }}">{{ c.name }}</option>
         {% endfor %}
       </optgroup>
-    </select>
-  </label><br>
-  <label>Тип детали (опционально, если элемент жёстко привязан к одной модели)
-    <select name="part_type_id">
-      <option value="">— любой подходящей категории —</option>
-      {% for pt in part_types %}
-      <option value="{{ pt.id }}">{{ pt.category.name }} — {{ pt.manufacturer }} {{ pt.model_name }}{% if pt.revision %} ({{ pt.revision }}){% endif %}</option>
-      {% endfor %}
     </select>
   </label><br>
   <label>Количество <input type="number" name="quantity" value="1" min="1" required></label><br>

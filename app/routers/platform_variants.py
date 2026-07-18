@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.auth import require_role
 from app.db import get_db
-from app.models import PartType, Platform, PlatformVariant, User
+from app.models import Platform, PlatformVariant, User
 from app.services import firmware_types as firmware_types_service
 from app.services import part_categories as categories_service
 from app.services import platforms as platforms_service
@@ -30,13 +29,9 @@ def _get_variant_or_404(db: Session, variant_id: int) -> PlatformVariant:
 
 
 def _variant_detail_context(db: Session, variant: PlatformVariant, user: User, error: str | None = None) -> dict:
-    part_types = db.scalars(
-        select(PartType).options(selectinload(PartType.category)).order_by(PartType.category_id, PartType.model_name)
-    ).all()
     return {
         "user": user,
         "variant": variant,
-        "part_types": part_types,
         "categories": categories_service.list_available_for_variant(db, variant.id),
         "firmware_types": firmware_types_service.list_available_for_variant(db, variant.id),
         "error": error,
@@ -97,7 +92,6 @@ def add_slot(
     variant_id: int,
     slot_name: str = Form(...),
     category_id: int = Form(...),
-    part_type_id: str = Form(""),
     quantity: int = Form(1),
     required: bool = Form(False),
     db: Session = Depends(get_db),
@@ -110,7 +104,6 @@ def add_slot(
             variant=variant,
             slot_name=slot_name,
             category_id=category_id,
-            part_type_id=int(part_type_id) if part_type_id else None,
             quantity=quantity,
             required=required,
         )

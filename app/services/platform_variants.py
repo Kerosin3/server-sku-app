@@ -49,7 +49,6 @@ def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
         select(PlatformVariant)
         .options(
             selectinload(PlatformVariant.slots).selectinload(PlatformVariantSlot.category),
-            selectinload(PlatformVariant.slots).selectinload(PlatformVariantSlot.part_type),
             selectinload(PlatformVariant.platform),
             selectinload(PlatformVariant.items),
             selectinload(PlatformVariant.firmware_requirements).selectinload(
@@ -80,7 +79,6 @@ def add_slot(
     variant: PlatformVariant,
     slot_name: str,
     category_id: int,
-    part_type_id: int | None,
     quantity: int,
     required: bool,
 ) -> PlatformVariantSlot:
@@ -97,7 +95,6 @@ def add_slot(
         platform_variant_id=variant.id,
         slot_name=slot_name,
         category_id=category_id,
-        part_type_id=part_type_id,
         quantity=quantity,
         required=required,
     )

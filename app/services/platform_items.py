@@ -168,27 +168,22 @@ def _find_or_create_part_unit(
     """
     part_types/part_units have no CRUD of their own yet (AGENTS.md roadmap
     item 2), so a never-before-seen serial number is registered here on
-    the fly: reuse the slot's part_type if it's hard-pinned, otherwise
-    find-or-create a PartType by (category, article) within the slot's
-    category. `article` is only required in that second case.
+    the fly: find-or-create a PartType by (category, article) within the
+    slot's category — article is always required for a new part.
     """
-    if slot.part_type_id is not None:
-        part_type_id = slot.part_type_id
-    else:
-        if not article:
-            raise ArticleRequiredError(serial_number)
-        part_type = db.scalar(
-            select(PartType).where(
-                PartType.category_id == slot.category_id, func.lower(PartType.model_name) == article.lower()
-            )
+    if not article:
+        raise ArticleRequiredError(serial_number)
+    part_type = db.scalar(
+        select(PartType).where(
+            PartType.category_id == slot.category_id, func.lower(PartType.model_name) == article.lower()
         )
-        if part_type is None:
-            part_type = PartType(category_id=slot.category_id, manufacturer="", model_name=article)
-            db.add(part_type)
-            db.flush()
-        part_type_id = part_type.id
+    )
+    if part_type is None:
+        part_type = PartType(category_id=slot.category_id, manufacturer="", model_name=article)
+        db.add(part_type)
+        db.flush()
 
-    part_unit = PartUnit(part_type_id=part_type_id, serial_number=serial_number, notes=comment or None)
+    part_unit = PartUnit(part_type_id=part_type.id, serial_number=serial_number, notes=comment or None)
     db.add(part_unit)
     db.flush()
     return part_unit
