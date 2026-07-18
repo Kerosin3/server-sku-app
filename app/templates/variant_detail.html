@@ -6,10 +6,10 @@
 {% if variant.description %}<p>{{ variant.description }}</p>{% endif %}
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
-<h2>Слоты (конструктор)</h2>
+<h2>Элементы изделия (конструктор)</h2>
 <table>
   <thead>
-    <tr><th>Имя слота</th><th>Категория</th><th>Тип детали</th><th>Кол-во</th><th>Обязателен</th></tr>
+    <tr><th>Название элемента</th><th>Категория</th><th>Тип детали</th><th>Кол-во</th><th>Обязателен</th></tr>
   </thead>
   <tbody>
     {% for s in variant.slots %}
@@ -21,15 +21,15 @@
       <td>{{ "да" if s.required else "нет" }}</td>
     </tr>
     {% else %}
-    <tr><td colspan="5">Слотов пока нет</td></tr>
+    <tr><td colspan="5">Элементов пока нет</td></tr>
     {% endfor %}
   </tbody>
 </table>
 
 {% if user.role in ('admin', 'engineer') %}
-<h3>Добавить слот</h3>
+<h3>Добавить элемент</h3>
 <form method="post" action="/variants/{{ variant.id }}/slots">
-  <label>Имя слота <input type="text" name="slot_name" required placeholder="напр. MIDPLANE, PSU, CPU"></label><br>
+  <label>Название элемента <input type="text" name="slot_name" required placeholder="напр. MIDPLANE, PSU, CPU"></label><br>
   <label>Категория
     <select name="category_id">
       <optgroup label="Покупное">
@@ -44,7 +44,7 @@
       </optgroup>
     </select>
   </label><br>
-  <label>Тип детали (опционально, если слот жёстко привязан к одной модели)
+  <label>Тип детали (опционально, если элемент жёстко привязан к одной модели)
     <select name="part_type_id">
       <option value="">— любой подходящей категории —</option>
       {% for pt in part_types %}
@@ -53,8 +53,8 @@
     </select>
   </label><br>
   <label>Количество <input type="number" name="quantity" value="1" min="1" required></label><br>
-  <label><input type="checkbox" name="required" checked> Обязательный слот</label><br>
-  <button type="submit">Добавить слот</button>
+  <label><input type="checkbox" name="required" checked> Обязательный элемент</label><br>
+  <button type="submit">Добавить элемент</button>
 </form>
 
 <details>
