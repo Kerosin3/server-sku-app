@@ -31,7 +31,6 @@ def _detail_context(item: PlatformItem, user: User, error: str | None = None) ->
         "user": user,
         "item": item,
         "checklist": items_service.slot_checklist(item),
-        "removed": items_service.removed_components(item),
         "error": error,
     }
 
@@ -90,6 +89,21 @@ def item_detail(
 ):
     item = _get_item_or_404(db, item_id)
     return templates.TemplateResponse(request, "item_detail.html", _detail_context(item, user))
+
+
+@router.get("/items/{item_id}/history", response_class=HTMLResponse)
+def item_history(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    item = _get_item_or_404(db, item_id)
+    return templates.TemplateResponse(
+        request,
+        "item_history.html",
+        {"user": user, "item": item, "removed": items_service.removed_components(item)},
+    )
 
 
 @router.post("/items/{item_id}/details", response_class=HTMLResponse)

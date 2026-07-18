@@ -22,6 +22,14 @@
   <noscript><button type="submit">Показать</button></noscript>
 </form>
 
+{% if user.role in ('admin', 'engineer') %}
+  {% if selected_variant_id %}
+  <p><a href="/variants/{{ selected_variant_id }}/items/new">+ Новое изделие в этом исполнении</a></p>
+  {% else %}
+  <p><small>Чтобы добавить изделие — выберите исполнение выше.</small></p>
+  {% endif %}
+{% endif %}
+
 <table>
   <thead>
     <tr><th>Инвентарный номер</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>

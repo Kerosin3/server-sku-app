@@ -1,6 +1,11 @@
 body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
 header { display: flex; gap: 1rem; align-items: center; padding: 0.75rem 1.5rem; border-bottom: 1px solid #ddd; }
-main { padding: 1.5rem; max-width: 1000px; margin: 0 auto; }
+main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
 input, button { font-size: 1rem; padding: 0.4rem; }
+.columns { display: flex; gap: 2rem; align-items: flex-start; }
+.columns > div { flex: 1; min-width: 0; }
+@media (max-width: 800px) {
+  .columns { flex-direction: column; }
+}

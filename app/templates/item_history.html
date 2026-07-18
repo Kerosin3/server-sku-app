@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}История — {{ item.asset_tag }} — Server Tracker{% endblock %}
+{% block content %}
+<p>
+  <a href="/platforms/{{ item.platform_variant.platform.id }}">{{ item.platform_variant.platform.name }}</a> /
+  <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a> /
+  <a href="/items/{{ item.id }}">{{ item.asset_tag }}</a>
+</p>
+<h1>История снятых компонентов — {{ item.asset_tag }}</h1>
+
+<table>
+  <thead>
+    <tr><th>Деталь</th><th>Серийный номер</th><th>Установлено</th><th>Снято</th></tr>
+  </thead>
+  <tbody>
+    {% for c in removed %}
+    <tr>
+      <td>
+        {{ c.part_unit.part_type.category.name }} —
+        {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
+      </td>
+      <td>{{ c.part_unit.serial_number }}</td>
+      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
+      <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4">История пуста</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p><a href="/items/{{ item.id }}">← К изделию «{{ item.asset_tag }}»</a></p>
+{% endblock %}
