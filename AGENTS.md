@@ -439,12 +439,15 @@ ORM-события — так проще ревьюить человеку, не
    (лента этапов + снятые компоненты), `/items/{id}/firmware-mac`
    (чек-лист и запись версий прошивок + управление MAC-адресами по
    требованиям исполнения), редактирование customer/location/notes.
-5. Поиск по серийнику/asset tag (across part_units + platform_items) —
-   эндпоинт `/search` существует, но возвращает JSON, а не HTML-партиал,
-   хотя дашборд (`/`, "Изделия") уже дёргает его через HTMX
-   (`hx-target="#search-results"`) — результаты пока никак не
-   отрисовываются. Нужно либо вернуть HTML-фрагмент из `/search`, либо
-   поменять дашборд на JS-рендер JSON.
+5. ~~Поиск по серийнику/asset tag/MAC~~ — готово: `/search` (
+   `app/services/search.py`) возвращает HTML-партиал (`search_results.html`),
+   не JSON — раньше не отрисовывался вообще (JSON в HTMX-таргет, плюс у
+   `<input>` не было `name="q"`, так что параметр вообще не уходил).
+   Ищет по `part_units.serial_number`, `platform_items.asset_tag`,
+   `mac_addresses.mac_address` (все — `ILIKE`, минимум 2 символа).
+   Для найденной детали/MAC — резолвится и показывается текущее
+   изделие, где она установлена (join через активный
+   `platform_components`), если установлена.
 6. Импорт из CSV (part_units и platform_items bulk).
 7. Экспорт в CSV/XLSX.
 8. UI: список изделий с фильтрами (HTMX) на дашборде `/` — карточка

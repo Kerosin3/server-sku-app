@@ -1,32 +1,27 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.db import get_db
-from app.models import PartUnit, PlatformItem
+from app.models import User
+from app.services import search as search_service
+from app.templating import templates
 
 router = APIRouter(prefix="/search", tags=["search"])
 
 
-@router.get("")
-def search(q: str, db: Session = Depends(get_db)):
+@router.get("", response_class=HTMLResponse)
+def search(
+    request: Request,
+    q: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     """
-    Unified search by component serial number OR platform_item asset tag.
-    This is the system's core user workflow — keep it fast.
+    Unified search by component serial number, item asset tag, or MAC
+    address — the system's core "where is this thing" workflow. Renders
+    an HTML partial for the dashboard's HTMX search box, not JSON.
     """
-    part_units = db.scalars(
-        select(PartUnit).where(PartUnit.serial_number.ilike(f"%{q}%")).limit(20)
-    ).all()
-    items = db.scalars(
-        select(PlatformItem).where(PlatformItem.asset_tag.ilike(f"%{q}%")).limit(20)
-    ).all()
-
-    # TODO(agent): for part_units, also fetch the current platform_item (join
-    # platform_components where removed_at IS NULL) — that's the answer to
-    # "where is this part right now". Also: this returns JSON, but
-    # dashboard.html's hx-get targets an HTML swap — wire an HTML partial
-    # response here before this search box actually renders anything.
-    return {
-        "part_units": [{"id": p.id, "serial_number": p.serial_number} for p in part_units],
-        "items": [{"id": i.id, "asset_tag": i.asset_tag} for i in items],
-    }
+    results = search_service.search(db, q)
+    return templates.TemplateResponse(request, "search_results.html", {"user": user, "q": q, **results})

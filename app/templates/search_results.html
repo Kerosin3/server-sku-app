@@ -1,0 +1,62 @@
+{% if q and q.strip()|length >= 2 %}
+  {% if items or parts or macs %}
+    {% if items %}
+    <h3>Изделия</h3>
+    <table>
+      <tbody>
+        {% for i in items %}
+        <tr>
+          <td><a href="/items/{{ i.id }}">{{ i.asset_tag }}</a></td>
+          <td>{{ i.platform_variant.name }}</td>
+          <td>{{ i.status | label('platform_status') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if parts %}
+    <h3>Детали</h3>
+    <table>
+      <tbody>
+        {% for row in parts %}
+        <tr>
+          <td>{{ row.part_unit.part_type.category.name }} — {{ row.part_unit.part_type.manufacturer }} {{ row.part_unit.part_type.model_name }}</td>
+          <td>{{ row.part_unit.serial_number }}</td>
+          <td>
+            {% if row.current_item %}
+            установлена в <a href="/items/{{ row.current_item.id }}">{{ row.current_item.asset_tag }}</a>
+            {% else %}
+            {{ row.part_unit.status | label('part_unit_status') }}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if macs %}
+    <h3>MAC-адреса</h3>
+    <table>
+      <tbody>
+        {% for row in macs %}
+        <tr>
+          <td>{{ row.mac.mac_address }}</td>
+          <td>{{ row.mac.label or "—" }}</td>
+          <td>
+            {% if row.owner_item %}
+            <a href="/items/{{ row.owner_item.id }}">{{ row.owner_item.asset_tag }}</a>
+            {% else %}
+            не установлено
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  {% else %}
+    <p>Ничего не найдено по «{{ q }}»</p>
+  {% endif %}
+{% endif %}

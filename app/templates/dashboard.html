@@ -2,7 +2,7 @@
 {% block content %}
 <h1>Изделия</h1>
 
-<input type="search" placeholder="Поиск по серийнику / инвентарному номеру"
+<input type="search" name="q" placeholder="Поиск по серийнику / инвентарному номеру / MAC"
        hx-get="/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results">
 <div id="search-results"></div>
 
