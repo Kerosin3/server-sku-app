@@ -33,3 +33,4 @@ form button[type="submit"] { margin-top: 0.3rem; }
 @media (max-width: 800px) {
   .columns { flex-direction: column; }
 }
+.comment-hint { cursor: help; margin-left: 0.3rem; }

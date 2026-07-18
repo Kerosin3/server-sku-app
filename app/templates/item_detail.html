@@ -65,7 +65,7 @@
           <td>
             {{ c.part_unit.part_type.category.name }} —
             {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
-            {% if c.part_unit.notes %}<br><small>{{ c.part_unit.notes }}</small>{% endif %}
+            {% if c.part_unit.notes %}<span class="comment-hint" title="{{ c.part_unit.notes }}">💬</span>{% endif %}
           </td>
           <td>{{ c.part_unit.serial_number }}</td>
           <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
