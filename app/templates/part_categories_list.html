@@ -5,25 +5,50 @@
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
 <h2>Покупное</h2>
-<ul>
-  {% for c in categories if c.group == 'purchased' %}
-  <li>{{ c.name }}</li>
-  {% else %}
-  <li>Пока нет категорий</li>
-  {% endfor %}
-</ul>
+<table>
+  <tbody>
+    {% for c in categories if c.group == 'purchased' %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ "Глобальная" if not c.platform_variant else "Исполнение: " + c.platform_variant.name }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/part-categories/{{ c.id }}/delete" style="display:inline">
+          <button type="submit">Удалить</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Пока нет категорий</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 <h2>В составе изделия</h2>
-<ul>
-  {% for c in categories if c.group == 'custom' %}
-  <li>{{ c.name }}</li>
-  {% else %}
-  <li>Пока нет категорий</li>
-  {% endfor %}
-</ul>
+<table>
+  <tbody>
+    {% for c in categories if c.group == 'custom' %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ "Глобальная" if not c.platform_variant else "Исполнение: " + c.platform_variant.name }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/part-categories/{{ c.id }}/delete" style="display:inline">
+          <button type="submit">Удалить</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Пока нет категорий</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 {% if user.role in ('admin', 'engineer') %}
-<h2>Добавить категорию</h2>
+<h2>Добавить глобальную категорию</h2>
+<p><small>Категорию для конкретного исполнения удобнее добавлять прямо со страницы этого исполнения.</small></p>
 <form method="post" action="/part-categories">
   <label>Название <input type="text" name="name" required placeholder="напр. Мидплейн OCP"></label><br>
   <label>Группа

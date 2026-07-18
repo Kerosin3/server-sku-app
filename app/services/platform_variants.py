@@ -9,7 +9,15 @@ data, not inventory state.
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import PartCategory, Platform, PlatformVariant, PlatformVariantSlot
+from app.models import (
+    FirmwareType,
+    PartCategory,
+    Platform,
+    PlatformVariant,
+    PlatformVariantFirmwareRequirement,
+    PlatformVariantMacRequirement,
+    PlatformVariantSlot,
+)
 
 
 class VariantNameTakenError(Exception):
@@ -24,6 +32,18 @@ class CategoryNotFoundError(Exception):
     pass
 
 
+class FirmwareTypeNotFoundError(Exception):
+    pass
+
+
+class FirmwareRequirementTakenError(Exception):
+    pass
+
+
+class MacLabelTakenError(Exception):
+    pass
+
+
 def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
     return db.scalar(
         select(PlatformVariant)
@@ -32,6 +52,10 @@ def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
             selectinload(PlatformVariant.slots).selectinload(PlatformVariantSlot.part_type),
             selectinload(PlatformVariant.platform),
             selectinload(PlatformVariant.items),
+            selectinload(PlatformVariant.firmware_requirements).selectinload(
+                PlatformVariantFirmwareRequirement.firmware_type
+            ),
+            selectinload(PlatformVariant.mac_requirements),
         )
         .where(PlatformVariant.id == variant_id)
     )
@@ -81,3 +105,45 @@ def add_slot(
     db.commit()
     db.refresh(slot)
     return slot
+
+
+def add_firmware_requirement(
+    db: Session, *, variant: PlatformVariant, firmware_type_id: int, track_backup: bool
+) -> PlatformVariantFirmwareRequirement:
+    if db.get(FirmwareType, firmware_type_id) is None:
+        raise FirmwareTypeNotFoundError(firmware_type_id)
+    if db.scalar(
+        select(PlatformVariantFirmwareRequirement).where(
+            PlatformVariantFirmwareRequirement.platform_variant_id == variant.id,
+            PlatformVariantFirmwareRequirement.firmware_type_id == firmware_type_id,
+        )
+    ) is not None:
+        raise FirmwareRequirementTakenError(firmware_type_id)
+
+    requirement = PlatformVariantFirmwareRequirement(
+        platform_variant_id=variant.id, firmware_type_id=firmware_type_id, track_backup=track_backup
+    )
+    db.add(requirement)
+    db.commit()
+    db.refresh(requirement)
+    return requirement
+
+
+def add_mac_requirement(
+    db: Session, *, variant: PlatformVariant, label: str, required: bool
+) -> PlatformVariantMacRequirement:
+    if db.scalar(
+        select(PlatformVariantMacRequirement).where(
+            PlatformVariantMacRequirement.platform_variant_id == variant.id,
+            PlatformVariantMacRequirement.label == label,
+        )
+    ) is not None:
+        raise MacLabelTakenError(label)
+
+    requirement = PlatformVariantMacRequirement(
+        platform_variant_id=variant.id, label=label, required=required
+    )
+    db.add(requirement)
+    db.commit()
+    db.refresh(requirement)
+    return requirement

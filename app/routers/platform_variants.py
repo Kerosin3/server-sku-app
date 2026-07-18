@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.auth import require_role
 from app.db import get_db
 from app.models import PartType, Platform, PlatformVariant, User
+from app.services import firmware_types as firmware_types_service
 from app.services import part_categories as categories_service
 from app.services import platforms as platforms_service
 from app.services import platform_variants as variants_service
@@ -36,7 +37,8 @@ def _variant_detail_context(db: Session, variant: PlatformVariant, user: User, e
         "user": user,
         "variant": variant,
         "part_types": part_types,
-        "categories": categories_service.list_categories(db),
+        "categories": categories_service.list_available_for_variant(db, variant.id),
+        "firmware_types": firmware_types_service.list_available_for_variant(db, variant.id),
         "error": error,
     }
 
@@ -124,5 +126,58 @@ def add_slot(
             "variant_detail.html",
             _variant_detail_context(db, variant, user, error=error),
             status_code=409 if isinstance(exc, variants_service.SlotNameTakenError) else 400,
+        )
+    return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
+@router.post("/variants/{variant_id}/firmware-requirements", response_class=HTMLResponse)
+def add_firmware_requirement(
+    request: Request,
+    variant_id: int,
+    firmware_type_id: int = Form(...),
+    track_backup: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    try:
+        variants_service.add_firmware_requirement(
+            db, variant=variant, firmware_type_id=firmware_type_id, track_backup=track_backup
+        )
+    except (variants_service.FirmwareTypeNotFoundError, variants_service.FirmwareRequirementTakenError) as exc:
+        error = (
+            "Тип прошивки не найден"
+            if isinstance(exc, variants_service.FirmwareTypeNotFoundError)
+            else "Такой тип прошивки уже отслеживается в этом исполнении"
+        )
+        variant = _get_variant_or_404(db, variant_id)
+        return templates.TemplateResponse(
+            request,
+            "variant_detail.html",
+            _variant_detail_context(db, variant, user, error=error),
+            status_code=400 if isinstance(exc, variants_service.FirmwareTypeNotFoundError) else 409,
+        )
+    return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
+@router.post("/variants/{variant_id}/mac-requirements", response_class=HTMLResponse)
+def add_mac_requirement(
+    request: Request,
+    variant_id: int,
+    label: str = Form(...),
+    required: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    try:
+        variants_service.add_mac_requirement(db, variant=variant, label=label, required=required)
+    except variants_service.MacLabelTakenError:
+        variant = _get_variant_or_404(db, variant_id)
+        return templates.TemplateResponse(
+            request,
+            "variant_detail.html",
+            _variant_detail_context(db, variant, user, error="Такая метка MAC уже есть в этом исполнении"),
+            status_code=409,
         )
     return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Прошивки и MAC — {{ item.asset_tag }} — Server Tracker{% endblock %}
+{% block content %}
+<p>
+  <a href="/platforms/{{ item.platform_variant.platform.id }}">{{ item.platform_variant.platform.name }}</a> /
+  <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a> /
+  <a href="/items/{{ item.id }}">{{ item.asset_tag }}</a>
+</p>
+<h1>Прошивки и MAC — {{ item.asset_tag }}</h1>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+<h2>Прошивки</h2>
+<table>
+  <thead>
+    <tr><th>Тип</th><th>Основной образ</th><th>Резервный образ</th></tr>
+  </thead>
+  <tbody>
+    {% for row in firmware_checklist %}
+    <tr>
+      <td>{{ row.requirement.firmware_type.name }}</td>
+      <td>
+        {% if row.primary %}{{ row.primary.version }} ({{ row.primary.recorded_at.strftime('%Y-%m-%d') }}){% else %}не указано{% endif %}
+      </td>
+      <td>
+        {% if not row.requirement.track_backup %}—
+        {% elif row.backup %}{{ row.backup.version }} ({{ row.backup.recorded_at.strftime('%Y-%m-%d') }})
+        {% else %}не указано{% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Для этого исполнения прошивки не заданы</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h3>Записать версию прошивки</h3>
+<form method="post" action="/items/{{ item.id }}/firmware">
+  <label>Деталь (плата собственной разработки)
+    <select name="part_unit_id" required>
+      {% for c in firmware_eligible_components %}
+      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number }}</option>
+      {% else %}
+      <option value="" disabled selected>— нет установленных плат собственной разработки —</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label>Тип прошивки
+    <select name="firmware_type_id" required>
+      {% for r in item.platform_variant.firmware_requirements %}
+      <option value="{{ r.firmware_type_id }}">{{ r.firmware_type.name }}</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label>Образ
+    <select name="image_slot">
+      <option value="primary">Основной</option>
+      <option value="backup">Резервный</option>
+    </select>
+  </label><br>
+  <label>Версия <input type="text" name="version" required></label><br>
+  <label>Заметка <input type="text" name="notes"></label><br>
+  <button type="submit">Записать</button>
+</form>
+{% endif %}
+
+<h2>MAC-адреса</h2>
+<table>
+  <thead>
+    <tr><th>Метка</th><th>Обязателен</th><th>MAC</th></tr>
+  </thead>
+  <tbody>
+    {% for row in mac_checklist %}
+    <tr>
+      <td>{{ row.requirement.label }}</td>
+      <td>{{ "да" if row.requirement.required else "нет" }}</td>
+      <td>
+        {% for m in row.macs %}{{ m.mac_address }}{% if not loop.last %}, {% endif %}{% else %}не указан{% endfor %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Для этого исполнения MAC-требования не заданы</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3>Все MAC-адреса изделия</h3>
+<table>
+  <thead>
+    <tr><th>MAC</th><th>Метка</th><th>Привязка</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for row in mac_checklist %}
+      {% for m in row.macs %}
+      <tr>
+        <td>{{ m.mac_address }}</td>
+        <td>{{ m.label or "—" }}</td>
+        <td>{{ "изделие" if m.platform_item_id else "деталь #" ~ m.part_unit_id }}</td>
+        <td>
+          {% if user.role in ('admin', 'engineer') %}
+          <form method="post" action="/items/{{ item.id }}/mac/{{ m.id }}/remove" style="display:inline">
+            <button type="submit">Удалить</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h3>Добавить MAC-адрес</h3>
+<form method="post" action="/items/{{ item.id }}/mac">
+  <label>MAC-адрес <input type="text" name="mac_address" required placeholder="AA:BB:CC:DD:EE:FF"></label><br>
+  <label>Метка <input type="text" name="label" placeholder="напр. BMC, LAN"></label><br>
+  <label>Привязка
+    <select name="part_unit_id">
+      <option value="">Изделие целиком (напр. management-порт шасси)</option>
+      {% for c in installed_components %}
+      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number }}</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <button type="submit">Добавить</button>
+</form>
+{% endif %}
+
+<p><a href="/items/{{ item.id }}">← К изделию «{{ item.asset_tag }}»</a></p>
+{% endblock %}

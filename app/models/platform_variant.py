@@ -32,6 +32,12 @@ class PlatformVariant(Base):
         back_populates="platform_variant", order_by="PlatformVariantSlot.slot_name"
     )
     items: Mapped[list["PlatformItem"]] = relationship(back_populates="platform_variant")
+    firmware_requirements: Mapped[list["PlatformVariantFirmwareRequirement"]] = relationship(
+        back_populates="platform_variant"
+    )
+    mac_requirements: Mapped[list["PlatformVariantMacRequirement"]] = relationship(
+        back_populates="platform_variant", order_by="PlatformVariantMacRequirement.label"
+    )
 
 
 class PlatformVariantSlot(Base):

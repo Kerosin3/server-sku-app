@@ -61,6 +61,7 @@
   <summary>+ Добавить свою категорию</summary>
   <form method="post" action="/part-categories">
     <input type="hidden" name="next" value="/variants/{{ variant.id }}">
+    <input type="hidden" name="platform_variant_id" value="{{ variant.id }}">
     <label>Название <input type="text" name="name" required placeholder="напр. Мидплейн OCP"></label><br>
     <label>Группа
       <select name="group">
@@ -71,6 +72,74 @@
     <button type="submit">Добавить категорию</button>
   </form>
 </details>
+{% endif %}
+
+<h2>Прошивки</h2>
+<table>
+  <thead>
+    <tr><th>Тип прошивки</th><th>Резервный образ</th></tr>
+  </thead>
+  <tbody>
+    {% for r in variant.firmware_requirements %}
+    <tr>
+      <td>{{ r.firmware_type.name }}</td>
+      <td>{{ "отслеживается (опционален)" if r.track_backup else "нет" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2">Прошивки пока не заданы</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h3>Добавить требование по прошивке</h3>
+<form method="post" action="/variants/{{ variant.id }}/firmware-requirements">
+  <label>Тип прошивки
+    <select name="firmware_type_id">
+      {% for f in firmware_types %}
+      <option value="{{ f.id }}">{{ f.name }}</option>
+      {% endfor %}
+    </select>
+  </label><br>
+  <label><input type="checkbox" name="track_backup"> Отслеживать резервный образ (dual-BIOS/BMC)</label><br>
+  <button type="submit">Добавить</button>
+</form>
+
+<details>
+  <summary>+ Добавить свой тип прошивки</summary>
+  <form method="post" action="/firmware-types">
+    <input type="hidden" name="next" value="/variants/{{ variant.id }}">
+    <input type="hidden" name="platform_variant_id" value="{{ variant.id }}">
+    <label>Название <input type="text" name="name" required placeholder="напр. Прошивка IO-платы"></label><br>
+    <button type="submit">Добавить тип прошивки</button>
+  </form>
+</details>
+{% endif %}
+
+<h2>MAC-адреса</h2>
+<table>
+  <thead>
+    <tr><th>Метка</th><th>Обязателен</th></tr>
+  </thead>
+  <tbody>
+    {% for r in variant.mac_requirements %}
+    <tr>
+      <td>{{ r.label }}</td>
+      <td>{{ "да" if r.required else "нет" }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2">MAC-требования пока не заданы</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if user.role in ('admin', 'engineer') %}
+<h3>Добавить требование по MAC</h3>
+<form method="post" action="/variants/{{ variant.id }}/mac-requirements">
+  <label>Метка <input type="text" name="label" required placeholder="напр. BMC, LAN"></label><br>
+  <label><input type="checkbox" name="required" checked> Обязателен</label><br>
+  <button type="submit">Добавить</button>
+</form>
 {% endif %}
 
 <h2>Изделия этого исполнения</h2>

@@ -27,20 +27,84 @@ def upgrade() -> None:
     )
     op.create_index("ix_users_username", "users", ["username"], unique=True)
 
+    # --- platform hierarchy: platforms (product family) -> platform_variants
+    # (a BOM/configuration) -> platform_items (a physical, asset-tagged unit).
+    # Created early because part_categories/firmware_types below scope
+    # themselves to a platform_variant. ---
+
+    op.create_table(
+        "platforms",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(128), nullable=False),
+        sa.Column("description", sa.String(1024), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+    )
+    op.create_index("ix_platforms_name", "platforms", ["name"], unique=True)
+
+    op.create_table(
+        "platform_variants",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("platform_id", sa.Integer(), sa.ForeignKey("platforms.id"), nullable=False),
+        sa.Column("name", sa.String(128), nullable=False),
+        sa.Column("description", sa.String(1024), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.UniqueConstraint("platform_id", "name", name="uq_platform_variant_name"),
+    )
+    op.create_index("ix_platform_variants_platform_id", "platform_variants", ["platform_id"])
+
     # part_categories is user-editable catalog data (see AGENTS.md
     # "Категории деталей"), not a Python-hardcoded enum like other
     # status/type codes — engineers add new categories through the UI
-    # (/part-categories) as new part shapes show up, no code change or
-    # deploy needed. group is "custom" (proprietary board, part of the
-    # item's own design) or "purchased" (off-the-shelf component).
+    # (/part-categories, or inline from a variant's constructor page) as
+    # new part shapes show up, no code change or deploy needed. group is
+    # "custom" (proprietary board, part of the item's own design) or
+    # "purchased" (off-the-shelf component).
+    #
+    # platform_variant_id: NULL = global (visible to every variant's
+    # constructor — the seeded starter set below). Set = scoped to that
+    # one variant only, so a hyper-specific category one engineer adds
+    # for their chassis doesn't clutter every other variant's dropdown.
+    # Uniqueness of `name` is enforced by the two partial indexes below
+    # rather than a plain unique column, since NULL != NULL in a normal
+    # unique index — a plain unique(platform_variant_id, name) would let
+    # two different global categories share a name by accident.
     op.create_table(
         "part_categories",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("name", sa.String(64), nullable=False),
         sa.Column("group", sa.String(16), nullable=False),
+        sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=True),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
     )
-    op.create_index("ix_part_categories_name", "part_categories", ["name"], unique=True)
+    op.create_index("ix_part_categories_platform_variant_id", "part_categories", ["platform_variant_id"])
+    op.create_index(
+        "ix_part_categories_name_global", "part_categories", ["name"],
+        unique=True, postgresql_where=sa.text("platform_variant_id IS NULL"),
+    )
+    op.create_index(
+        "ix_part_categories_name_scoped", "part_categories", ["platform_variant_id", "name"],
+        unique=True, postgresql_where=sa.text("platform_variant_id IS NOT NULL"),
+    )
+
+    # Same user-editable-catalog / global-vs-variant-scoped pattern as
+    # part_categories, for firmware types (BIOS, BMC, CPLD, ...) instead
+    # of physical part categories.
+    op.create_table(
+        "firmware_types",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(64), nullable=False),
+        sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=True),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+    )
+    op.create_index("ix_firmware_types_platform_variant_id", "firmware_types", ["platform_variant_id"])
+    op.create_index(
+        "ix_firmware_types_name_global", "firmware_types", ["name"],
+        unique=True, postgresql_where=sa.text("platform_variant_id IS NULL"),
+    )
+    op.create_index(
+        "ix_firmware_types_name_scoped", "firmware_types", ["platform_variant_id", "name"],
+        unique=True, postgresql_where=sa.text("platform_variant_id IS NOT NULL"),
+    )
 
     op.create_table(
         "part_types",
@@ -74,7 +138,7 @@ def upgrade() -> None:
         "firmware_records",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("part_unit_id", sa.Integer(), sa.ForeignKey("part_units.id"), nullable=False),
-        sa.Column("firmware_type", sa.String(32), nullable=False),
+        sa.Column("firmware_type_id", sa.Integer(), sa.ForeignKey("firmware_types.id"), nullable=False),
         sa.Column("image_slot", sa.String(16), nullable=False, server_default="primary"),
         sa.Column("version", sa.String(64), nullable=False),
         sa.Column("recorded_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
@@ -85,31 +149,8 @@ def upgrade() -> None:
     op.create_index(
         "ix_firmware_records_current_lookup",
         "firmware_records",
-        ["part_unit_id", "firmware_type", "image_slot", "recorded_at"],
+        ["part_unit_id", "firmware_type_id", "image_slot", "recorded_at"],
     )
-
-    # --- platform hierarchy: platforms (product family) -> platform_variants
-    # (a BOM/configuration) -> platform_items (a physical, asset-tagged unit) ---
-
-    op.create_table(
-        "platforms",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("name", sa.String(128), nullable=False),
-        sa.Column("description", sa.String(1024), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-    )
-    op.create_index("ix_platforms_name", "platforms", ["name"], unique=True)
-
-    op.create_table(
-        "platform_variants",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("platform_id", sa.Integer(), sa.ForeignKey("platforms.id"), nullable=False),
-        sa.Column("name", sa.String(128), nullable=False),
-        sa.Column("description", sa.String(1024), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.UniqueConstraint("platform_id", "name", name="uq_platform_variant_name"),
-    )
-    op.create_index("ix_platform_variants_platform_id", "platform_variants", ["platform_id"])
 
     op.create_table(
         "platform_variant_slots",
@@ -124,6 +165,44 @@ def upgrade() -> None:
     )
     op.create_index(
         "ix_platform_variant_slots_platform_variant_id", "platform_variant_slots", ["platform_variant_id"]
+    )
+
+    # As-planned firmware requirement for a variant: "this variant's
+    # motherboard needs BIOS" etc. track_backup marks a dual-image
+    # firmware type (BIOS/BMC) where a backup/secondary image is also
+    # expected to be tracked — the backup is never itself required for
+    # completeness (see app/services/firmware_records.py), only primary
+    # is. Single-image firmware (CPLD, backplane) leaves track_backup
+    # false.
+    op.create_table(
+        "platform_variant_firmware_requirements",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=False),
+        sa.Column("firmware_type_id", sa.Integer(), sa.ForeignKey("firmware_types.id"), nullable=False),
+        sa.Column("track_backup", sa.Boolean(), nullable=False, server_default=sa.false()),
+        sa.UniqueConstraint(
+            "platform_variant_id", "firmware_type_id", name="uq_platform_variant_firmware_requirement"
+        ),
+    )
+    op.create_index(
+        "ix_platform_variant_firmware_requirements_variant_id",
+        "platform_variant_firmware_requirements", ["platform_variant_id"],
+    )
+
+    # As-planned MAC requirement for a variant: a labeled MAC address
+    # slot ("BMC" required, "LAN" optional, ...) — actual assignment
+    # lives in mac_addresses, matched to a requirement by label.
+    op.create_table(
+        "platform_variant_mac_requirements",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=False),
+        sa.Column("label", sa.String(64), nullable=False),
+        sa.Column("required", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.UniqueConstraint("platform_variant_id", "label", name="uq_platform_variant_mac_requirement"),
+    )
+    op.create_index(
+        "ix_platform_variant_mac_requirements_variant_id",
+        "platform_variant_mac_requirements", ["platform_variant_id"],
     )
 
     op.create_table(
@@ -205,7 +284,8 @@ def upgrade() -> None:
 
     # Starter set of part categories — fully editable/extensible via the
     # /part-categories UI afterward, this is just a reasonable default so
-    # the constructor isn't empty on first use.
+    # the constructor isn't empty on first use. All global (NULL
+    # platform_variant_id).
     part_categories_table = sa.table(
         "part_categories",
         sa.column("name", sa.String),
@@ -233,6 +313,21 @@ def upgrade() -> None:
         ],
     )
 
+    # Starter set of global firmware types, same rationale.
+    firmware_types_table = sa.table(
+        "firmware_types",
+        sa.column("name", sa.String),
+    )
+    op.bulk_insert(
+        firmware_types_table,
+        [
+            {"name": "BIOS"},
+            {"name": "BMC"},
+            {"name": "CPLD"},
+            {"name": "Прошивка бэкплейна"},
+        ],
+    )
+
 
 def downgrade() -> None:
     op.drop_table("audit_log")
@@ -251,21 +346,34 @@ def downgrade() -> None:
     op.drop_index("ix_platform_items_platform_variant_id", table_name="platform_items")
     op.drop_index("ix_platform_items_asset_tag", table_name="platform_items")
     op.drop_table("platform_items")
+    op.drop_index("ix_platform_variant_mac_requirements_variant_id", table_name="platform_variant_mac_requirements")
+    op.drop_table("platform_variant_mac_requirements")
+    op.drop_index(
+        "ix_platform_variant_firmware_requirements_variant_id",
+        table_name="platform_variant_firmware_requirements",
+    )
+    op.drop_table("platform_variant_firmware_requirements")
     op.drop_index("ix_platform_variant_slots_platform_variant_id", table_name="platform_variant_slots")
     op.drop_table("platform_variant_slots")
+    op.drop_index("ix_firmware_records_current_lookup", table_name="firmware_records")
+    op.drop_index("ix_firmware_records_part_unit_id", table_name="firmware_records")
+    op.drop_table("firmware_records")
+    op.drop_index("ix_part_units_serial_number", table_name="part_units")
+    op.drop_index("ix_part_units_part_type_id", table_name="part_units")
+    op.drop_table("part_units")
+    op.drop_index("ix_part_types_category_id", table_name="part_types")
+    op.drop_table("part_types")
+    op.drop_index("ix_firmware_types_name_scoped", table_name="firmware_types")
+    op.drop_index("ix_firmware_types_name_global", table_name="firmware_types")
+    op.drop_index("ix_firmware_types_platform_variant_id", table_name="firmware_types")
+    op.drop_table("firmware_types")
+    op.drop_index("ix_part_categories_name_scoped", table_name="part_categories")
+    op.drop_index("ix_part_categories_name_global", table_name="part_categories")
+    op.drop_index("ix_part_categories_platform_variant_id", table_name="part_categories")
+    op.drop_table("part_categories")
     op.drop_index("ix_platform_variants_platform_id", table_name="platform_variants")
     op.drop_table("platform_variants")
     op.drop_index("ix_platforms_name", table_name="platforms")
     op.drop_table("platforms")
-    op.drop_index("ix_part_units_serial_number", table_name="part_units")
-    op.drop_index("ix_part_units_part_type_id", table_name="part_units")
-    op.drop_index("ix_firmware_records_current_lookup", table_name="firmware_records")
-    op.drop_index("ix_firmware_records_part_unit_id", table_name="firmware_records")
-    op.drop_table("firmware_records")
-    op.drop_table("part_units")
-    op.drop_index("ix_part_types_category_id", table_name="part_types")
-    op.drop_table("part_types")
-    op.drop_index("ix_part_categories_name", table_name="part_categories")
-    op.drop_table("part_categories")
     op.drop_index("ix_users_username", table_name="users")
     op.drop_table("users")

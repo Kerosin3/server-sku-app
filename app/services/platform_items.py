@@ -15,6 +15,7 @@ from app.models import (
     PlatformComponent,
     PlatformItem,
     PlatformVariant,
+    PlatformVariantFirmwareRequirement,
     PlatformVariantSlot,
     User,
 )
@@ -53,6 +54,10 @@ def get_item(db: Session, item_id: int) -> PlatformItem | None:
             .selectinload(PlatformVariant.slots)
             .selectinload(PlatformVariantSlot.category),
             selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.platform),
+            selectinload(PlatformItem.platform_variant)
+            .selectinload(PlatformVariant.firmware_requirements)
+            .selectinload(PlatformVariantFirmwareRequirement.firmware_type),
+            selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.mac_requirements),
             selectinload(PlatformItem.components)
             .selectinload(PlatformComponent.part_unit)
             .selectinload(PartUnit.part_type)

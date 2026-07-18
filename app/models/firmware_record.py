@@ -20,9 +20,9 @@ class FirmwareRecord(Base):
        investigation you need to know what version was on the board at
        any point in time, not just now.
 
-    firmware_type is a free string ("bios", "bmc", "cpld", "backplane_fw",
-    ...) — register a Russian label in app/i18n.py (FIRMWARE_TYPES) for
-    every value used.
+    firmware_type_id references firmware_types (app/models/firmware_type.py)
+    — a user-editable catalog, not a Python-hardcoded enum, so a new
+    firmware-carrying board's firmware type doesn't need a code change.
 
     image_slot handles redundant firmware images that can independently be
     at different versions — BIOS and BMC are typically dual-image
@@ -31,25 +31,25 @@ class FirmwareRecord(Base):
     — keeping the column NOT NULL with a default keeps the "current
     version" lookup uniform, no NULL-handling special case.
 
-    Current version per (part_unit_id, firmware_type, image_slot) is the
-    latest row by recorded_at — query with PostgreSQL's DISTINCT ON:
-        SELECT DISTINCT ON (part_unit_id, firmware_type, image_slot) *
+    Current version per (part_unit_id, firmware_type_id, image_slot) is
+    the latest row by recorded_at — query with PostgreSQL's DISTINCT ON:
+        SELECT DISTINCT ON (part_unit_id, firmware_type_id, image_slot) *
         FROM firmware_records
         WHERE part_unit_id = :id
-        ORDER BY part_unit_id, firmware_type, image_slot, recorded_at DESC
+        ORDER BY part_unit_id, firmware_type_id, image_slot, recorded_at DESC
     """
 
     __tablename__ = "firmware_records"
     __table_args__ = (
         Index(
             "ix_firmware_records_current_lookup",
-            "part_unit_id", "firmware_type", "image_slot", "recorded_at",
+            "part_unit_id", "firmware_type_id", "image_slot", "recorded_at",
         ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     part_unit_id: Mapped[int] = mapped_column(ForeignKey("part_units.id"), index=True)
-    firmware_type: Mapped[str] = mapped_column(String(32))
+    firmware_type_id: Mapped[int] = mapped_column(ForeignKey("firmware_types.id"))
     image_slot: Mapped[str] = mapped_column(String(16), default="primary", server_default="primary")
     version: Mapped[str] = mapped_column(String(64))
     recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -57,4 +57,5 @@ class FirmwareRecord(Base):
     notes: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     part_unit: Mapped["PartUnit"] = relationship(back_populates="firmware_records")
+    firmware_type: Mapped["FirmwareType"] = relationship()
     user: Mapped["User | None"] = relationship()

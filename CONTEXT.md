@@ -48,12 +48,18 @@ Compose + Caddy.
 
 4. **Схема — источник истины.**
    `alembic/versions/0001_initial_schema.py`. Полностью сверена с
-   моделями (13 таблиц: users, part_categories, part_types, part_units,
-   firmware_records, platforms, platform_variants, platform_variant_slots,
-   platform_items, platform_components, platform_events, mac_addresses,
-   audit_log) — колонки, nullable, unique/check-constraints и индексы
-   совпадают 1:1, downgrade() корректен по порядку FK-зависимостей.
-   `part_categories` — исключение из «языковой конвенции»: это
+   моделями (16 таблиц: users, platforms, platform_variants,
+   part_categories, firmware_types, part_types, part_units,
+   firmware_records, platform_variant_slots,
+   platform_variant_firmware_requirements,
+   platform_variant_mac_requirements, platform_items,
+   platform_components, platform_events, mac_addresses, audit_log) —
+   колонки, nullable, unique/check-constraints и индексы совпадают 1:1,
+   downgrade() корректен по порядку FK-зависимостей. Прошивки и
+   MAC-адреса — тоже элементы конструктора (requirements-таблицы на
+   исполнение), не только физические детали, см. AGENTS.md.
+   `part_categories`/`firmware_types` — исключение из «языковой
+   конвенции»: это
    пользовательский каталог, редактируемый из UI, а не захардкоженный в
    коде enum, см. AGENTS.md «Категории деталей».
 

@@ -6,6 +6,8 @@ from app.auth import get_current_user, require_role
 from app.db import get_db
 from app.i18n import PLATFORM_EVENT_TYPES
 from app.models import PlatformItem, PlatformVariant, User
+from app.services import firmware_records as firmware_records_service
+from app.services import mac_addresses as mac_service
 from app.services import platform_events as events_service
 from app.services import platform_items as items_service
 from app.services import platform_variants as variants_service
@@ -43,6 +45,28 @@ def _stages_context(db: Session, item: PlatformItem, user: User, error: str | No
         "item": item,
         "event_types": PLATFORM_EVENT_TYPES,
         "recent_events": events_service.list_events(db, item)[:5],
+        "error": error,
+    }
+
+
+def _firmware_mac_context(db: Session, item: PlatformItem, user: User, error: str | None = None) -> dict:
+    installed_components = [c for c in item.components if c.removed_at is None]
+    # Firmware lives on in-house boards (motherboard, backplane, ...),
+    # not on purchased commodity parts (CPU, RAM, PSU, ...) — restrict
+    # the firmware-recording target to "custom"-group components so a
+    # CPU/PSU/etc. never shows up as a place to record BIOS/BMC/CPLD.
+    # MAC ownership isn't restricted this way: a MAC can legitimately be
+    # on a purchased NIC card too.
+    firmware_eligible_components = [
+        c for c in installed_components if c.part_unit.part_type.category.group == "custom"
+    ]
+    return {
+        "user": user,
+        "item": item,
+        "installed_components": installed_components,
+        "firmware_eligible_components": firmware_eligible_components,
+        "firmware_checklist": firmware_records_service.firmware_checklist(db, item),
+        "mac_checklist": mac_service.mac_checklist(db, item),
         "error": error,
     }
 
@@ -243,3 +267,106 @@ def remove_component(
     except items_service.ComponentNotActiveError:
         raise HTTPException(status_code=409, detail="Component not active on this item")
     return RedirectResponse(url=f"/items/{item_id}", status_code=303)
+
+
+@router.get("/items/{item_id}/firmware-mac", response_class=HTMLResponse)
+def item_firmware_mac(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    item = _get_item_or_404(db, item_id)
+    return templates.TemplateResponse(request, "item_firmware_mac.html", _firmware_mac_context(db, item, user))
+
+
+@router.post("/items/{item_id}/firmware", response_class=HTMLResponse)
+def record_firmware(
+    request: Request,
+    item_id: int,
+    part_unit_id: int = Form(...),
+    firmware_type_id: int = Form(...),
+    image_slot: str = Form("primary"),
+    version: str = Form(...),
+    notes: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    try:
+        firmware_records_service.record_firmware(
+            db,
+            actor=user,
+            item=item,
+            part_unit_id=part_unit_id,
+            firmware_type_id=firmware_type_id,
+            image_slot=image_slot,
+            version=version,
+            notes=notes,
+        )
+    except firmware_records_service.PartUnitNotInstalledError:
+        error = "Эта деталь не установлена в изделии"
+    except firmware_records_service.PurchasedPartCannotCarryFirmwareError:
+        error = "Прошивка записывается на платы собственной разработки, а не на покупные детали"
+    except firmware_records_service.FirmwareTypeNotRequiredError:
+        error = "Этот тип прошивки не задан для данного исполнения"
+    except firmware_records_service.BackupNotTrackedError:
+        error = "Для этого типа прошивки резервный образ не отслеживается"
+    else:
+        return RedirectResponse(url=f"/items/{item_id}/firmware-mac", status_code=303)
+
+    item = _get_item_or_404(db, item_id)
+    return templates.TemplateResponse(
+        request, "item_firmware_mac.html", _firmware_mac_context(db, item, user, error=error), status_code=400
+    )
+
+
+@router.post("/items/{item_id}/mac", response_class=HTMLResponse)
+def add_mac(
+    request: Request,
+    item_id: int,
+    mac_address: str = Form(...),
+    label: str = Form(""),
+    part_unit_id: str = Form(""),
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    try:
+        mac_service.add_mac(
+            db,
+            actor=user,
+            item=item,
+            mac_address=mac_address,
+            label=label,
+            part_unit_id=int(part_unit_id) if part_unit_id else None,
+        )
+    except mac_service.InvalidMacFormatError:
+        error = "Некорректный формат MAC-адреса"
+    except mac_service.MacAddressTakenError:
+        error = "Такой MAC-адрес уже зарегистрирован"
+    except mac_service.PartUnitNotInstalledError:
+        error = "Эта деталь не установлена в изделии"
+    else:
+        return RedirectResponse(url=f"/items/{item_id}/firmware-mac", status_code=303)
+
+    item = _get_item_or_404(db, item_id)
+    return templates.TemplateResponse(
+        request, "item_firmware_mac.html", _firmware_mac_context(db, item, user, error=error), status_code=400
+    )
+
+
+@router.post("/items/{item_id}/mac/{mac_id}/remove", response_class=HTMLResponse)
+def remove_mac(
+    request: Request,
+    item_id: int,
+    mac_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    try:
+        mac_service.remove_mac(db, actor=user, item=item, mac_id=mac_id)
+    except mac_service.MacNotFoundError:
+        raise HTTPException(status_code=404, detail="MAC address not found on this item")
+    return RedirectResponse(url=f"/items/{item_id}/firmware-mac", status_code=303)

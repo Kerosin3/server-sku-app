@@ -9,7 +9,8 @@
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
 <p>
-  Статус: {{ item.status | label('platform_status') }} — <a href="/items/{{ item.id }}/stages">этапы →</a><br>
+  Статус: {{ item.status | label('platform_status') }} — <a href="/items/{{ item.id }}/stages">этапы →</a>
+  — <a href="/items/{{ item.id }}/firmware-mac">прошивки и MAC →</a><br>
   {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
   {% if user.role != 'viewer' %}
   Заказчик: {{ item.customer or "—" }}<br>

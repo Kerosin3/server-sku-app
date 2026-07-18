@@ -1,4 +1,4 @@
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -18,11 +18,26 @@ class PartCategory(Base):
     this list themselves through /part-categories. `name` is the Russian
     display text directly (like Platform.name), no separate code/label
     indirection needed.
+
+    platform_variant_id NULL = global (the seeded starter set, visible
+    to every variant's constructor). Set = scoped to that one variant
+    only — categories added inline from a variant's constructor page
+    ("+ Добавить свою категорию") get scoped there, so a one-off
+    category doesn't clutter every other variant's dropdown. Uniqueness
+    of `name` is enforced by two partial DB indexes (see migration), not
+    a plain unique column — NULL doesn't equal NULL in a normal unique
+    index, so a plain unique(platform_variant_id, name) would silently
+    allow duplicate global names.
     """
 
     __tablename__ = "part_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(64), index=True)
     group: Mapped[str] = mapped_column(String(16))  # "custom" | "purchased"
+    platform_variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_variants.id"), nullable=True, index=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    platform_variant: Mapped["PlatformVariant | None"] = relationship()

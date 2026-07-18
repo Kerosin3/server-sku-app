@@ -13,10 +13,12 @@ its Russian label here in the same change. Never hardcode a translated
 string inline in a template or router — always go through this module,
 so there is exactly one place to check/update for correctness.
 
-Exception: part categories (app/models/part_category.py) are NOT here —
-they're user-editable catalog data in the part_categories table, not a
-Python-hardcoded enum. See PART_CATEGORY_GROUPS below for the two fixed
-groups a category can belong to.
+Exception: part categories (app/models/part_category.py) and firmware
+types (app/models/firmware_type.py) are NOT here — they're
+user-editable catalog data (part_categories / firmware_types tables),
+not a Python-hardcoded enum. See PART_CATEGORY_GROUPS below for the two
+fixed groups a category can belong to; firmware types have no
+equivalent grouping.
 """
 
 USER_ROLES = {
@@ -66,16 +68,6 @@ PLATFORM_EVENT_TYPES = {
     "shipped": "Отгружено",
 }
 
-# See app/models/firmware_record.py — firmware version history per
-# part_unit. Extensible: add a new firmware_type + its Russian label here,
-# no schema migration needed.
-FIRMWARE_TYPES = {
-    "bios": "BIOS",
-    "bmc": "BMC",
-    "cpld": "CPLD",
-    "backplane_fw": "Прошивка бэкплейна",
-}
-
 FIRMWARE_IMAGE_SLOTS = {
     "primary": "Основная",
     "backup": "Резервная",
@@ -87,7 +79,6 @@ _REGISTRY = {
     "part_unit_status": PART_UNIT_STATUSES,
     "platform_status": PLATFORM_STATUSES,
     "platform_event_type": PLATFORM_EVENT_TYPES,
-    "firmware_type": FIRMWARE_TYPES,
     "firmware_image_slot": FIRMWARE_IMAGE_SLOTS,
 }
 
