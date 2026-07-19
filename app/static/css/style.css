@@ -77,11 +77,9 @@ table {
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
 }
 th, td { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--color-border); }
+th:last-child:not([colspan]), td:last-child:not([colspan]) { width: 1%; white-space: nowrap; }
 thead th {
   background: var(--color-bg);
   color: var(--color-muted);
