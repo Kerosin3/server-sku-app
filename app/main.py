@@ -16,7 +16,7 @@ from app.routers import (
     users,
 )
 
-app = FastAPI(title="Server Tracker")
+app = FastAPI(title="Server SKU Tracker")
 
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, same_site="lax")
 
