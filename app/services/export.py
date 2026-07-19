@@ -21,11 +21,9 @@ def _component_dict(c: PlatformComponent) -> dict:
     part_unit = c.part_unit
     part_type = part_unit.part_type
     return {
-        "slot": c.platform_variant_slot.slot_name if c.platform_variant_slot else None,
+        "detail": c.platform_variant_slot.slot_name if c.platform_variant_slot else None,
         "category": part_type.category.name,
-        "manufacturer": part_type.manufacturer or None,
-        "model": part_type.model_name,
-        "revision": part_type.revision,
+        "article": part_type.model_name,
         "serial_number": part_unit.serial_number,
         "comment": part_unit.notes,
         "installed_at": _dt(c.installed_at),
