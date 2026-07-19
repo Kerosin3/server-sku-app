@@ -63,6 +63,30 @@
     <button type="submit">Добавить категорию</button>
   </form>
 </details>
+
+<h3>Свои категории этого исполнения</h3>
+<table>
+  <thead>
+    <tr><th>Название</th><th>Группа</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for c in categories if c.platform_variant_id == variant.id %}
+    <tr>
+      <td>{{ c.name }}</td>
+      <td>{{ "Покупное" if c.group == "purchased" else "В составе изделия" }}</td>
+      <td>
+        <form method="post" action="/part-categories/{{ c.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Удалить категорию «{{ c.name }}»?')">
+          <input type="hidden" name="next" value="/variants/{{ variant.id }}">
+          <button type="submit">Удалить</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3">Своих категорий пока нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endif %}
 
 <h2>Прошивки</h2>
