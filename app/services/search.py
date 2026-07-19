@@ -3,7 +3,9 @@ Business logic for the unified search bar on the dashboard — by
 component serial number, item asset tag, or MAC address. This is the
 system's core "where is this thing" workflow, see AGENTS.md.
 """
-from sqlalchemy import select
+import re
+
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import MacAddress, PartUnit, PlatformComponent, PlatformItem
@@ -40,13 +42,22 @@ def search(db: Session, q: str) -> dict:
     ).all()
     parts = [{"part_unit": p, "current_item": _current_item_for_part_unit(db, p.id)} for p in part_units]
 
+    # MAC addresses are stored colon-separated (see normalize_mac); a plain
+    # ILIKE on the raw query would miss "DEADBEEF0001" or "dead-beef-0001"
+    # pasted from elsewhere, so also match against the separator-stripped
+    # form on both sides when the query itself looks like hex.
+    mac_filters = [MacAddress.mac_address.ilike(f"%{q}%")]
+    stripped_q = re.sub(r"[^0-9A-Fa-f]", "", q)
+    if stripped_q:
+        mac_filters.append(func.replace(MacAddress.mac_address, ":", "").ilike(f"%{stripped_q}%"))
+
     macs = db.scalars(
         select(MacAddress)
         .options(
             selectinload(MacAddress.platform_item),
             selectinload(MacAddress.part_unit).selectinload(PartUnit.part_type),
         )
-        .where(MacAddress.mac_address.ilike(f"%{q}%"))
+        .where(or_(*mac_filters))
         .limit(20)
     ).all()
     mac_hits = []
