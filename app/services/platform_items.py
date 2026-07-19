@@ -56,6 +56,23 @@ class ComponentNotActiveError(Exception):
     pass
 
 
+class ComponentsLockedError(Exception):
+    """
+    Component list is locked once "assembled" has been marked — kitting
+    is meant to be a deliberate, recorded milestone (see
+    app/services/platform_events.py), not something a stray component
+    add/remove can quietly undo. Recording a "disassembled" event
+    unlocks it again for corrections/rework.
+    """
+
+
+# Statuses in which the as-built component list may be edited. Every
+# other status (assembled, testing, shipped, ...) means kitting was
+# already marked complete at some point — install_component/
+# remove_component are blocked until a "disassembled" event reopens it.
+EDITABLE_STATUSES = {"assembly", "disassembled"}
+
+
 def get_item(db: Session, item_id: int) -> PlatformItem | None:
     return db.scalar(
         select(PlatformItem)
@@ -229,6 +246,9 @@ def install_component(
     article) — ambiguous only in the rare case where two different
     articles happen to share this exact serial number.
     """
+    if item.status not in EDITABLE_STATUSES:
+        raise ComponentsLockedError()
+
     serial_number = (serial_number or "").strip() or None
     comment = (comment or "").strip() or None
     article = (article or "").strip() or None
@@ -307,6 +327,9 @@ def install_component(
 
 
 def remove_component(db: Session, *, actor: User, item: PlatformItem, component_id: int) -> PlatformComponent:
+    if item.status not in EDITABLE_STATUSES:
+        raise ComponentsLockedError()
+
     component = db.scalar(
         select(PlatformComponent).where(
             PlatformComponent.id == component_id, PlatformComponent.platform_item_id == item.id

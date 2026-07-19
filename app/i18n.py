@@ -48,6 +48,7 @@ PART_UNIT_STATUSES = {
 PLATFORM_STATUSES = {
     "assembly": "Сборка",
     "assembled": "Укомплектовано",
+    "disassembled": "Разукомплектовка",
     "testing": "Тестирование",
     "shipped": "Отгружен",
     "deployed": "В эксплуатации",
@@ -62,6 +63,7 @@ PLATFORM_STATUSES = {
 # the order of milestone buttons on the item page — keep it that way.
 PLATFORM_EVENT_TYPES = {
     "assembled": "Укомплектовано",
+    "disassembled": "Разукомплектовка",
     "test_started": "Тестирование начато",
     "test_passed": "Тест пройден",
     "test_passed_with_remarks": "Тест пройден с замечаниями",

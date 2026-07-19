@@ -39,6 +39,7 @@ def _detail_context(item: PlatformItem, user: User, error: str | None = None) ->
         "user": user,
         "item": item,
         "checklist": items_service.slot_checklist(item),
+        "can_edit_components": item.status in items_service.EDITABLE_STATUSES,
         "error": error,
     }
 
@@ -282,6 +283,18 @@ def install_component(
         )
     except items_service.SlotNotFoundError:
         raise HTTPException(status_code=400, detail="Unknown platform_variant_slot_id")
+    except items_service.ComponentsLockedError:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            _detail_context(
+                item,
+                user,
+                error="Изделие укомплектовано — чтобы менять состав, сначала отметьте «Разукомплектовка» на странице этапов",
+            ),
+            status_code=409,
+        )
     except items_service.CommentRequiredError:
         item = _get_item_or_404(db, item_id)
         return templates.TemplateResponse(
@@ -331,6 +344,18 @@ def remove_component(
         items_service.remove_component(db, actor=user, item=item, component_id=component_id)
     except items_service.ComponentNotActiveError:
         raise HTTPException(status_code=409, detail="Component not active on this item")
+    except items_service.ComponentsLockedError:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            _detail_context(
+                item,
+                user,
+                error="Изделие укомплектовано — чтобы менять состав, сначала отметьте «Разукомплектовка» на странице этапов",
+            ),
+            status_code=409,
+        )
     return RedirectResponse(url=f"/items/{item_id}", status_code=303)
 
 

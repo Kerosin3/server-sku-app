@@ -20,6 +20,7 @@ from app.models import PlatformEvent, PlatformItem, User
 # finer-grained milestone happened (e.g. which test attempt passed).
 _STATUS_ON_EVENT = {
     "assembled": "assembled",
+    "disassembled": "disassembled",
     "test_started": "testing",
     "shipped": "shipped",
 }
@@ -35,6 +36,7 @@ _PREREQUISITES: dict[str, tuple[set[str], str]] = {
     "test_failed": ({"test_started"}, "Нельзя завершить тест, который не был начат"),
     "shipped": ({"test_passed", "test_passed_with_remarks"}, "Нельзя отгрузить изделие без пройденного теста"),
     "service": ({"shipped"}, "Нельзя провести сервисное обслуживание неотгруженного изделия"),
+    "disassembled": ({"assembled"}, "Нельзя разукомплектовать то, что не было укомплектовано"),
 }
 
 

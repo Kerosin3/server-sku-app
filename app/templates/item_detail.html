@@ -16,6 +16,8 @@
 </div>
 
 <p>
+  Платформа: <a href="/platforms/{{ item.platform_variant.platform.id }}">{{ item.platform_variant.platform.name }}</a>
+  / <a href="/variants/{{ item.platform_variant.id }}">{{ item.platform_variant.name }}</a><br>
   Статус: {{ item.status | label('platform_status') }}<br>
   {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
   {% if user.role != 'viewer' %}
@@ -60,6 +62,7 @@
   {% if user.role in ('admin', 'engineer') %}
   <div class="col-form">
     <h2>Установить компонент</h2>
+    {% if can_edit_components %}
     <form method="post" action="/items/{{ item.id }}/components">
       <label>Обозначение
         <select name="platform_variant_slot_id" required>
@@ -74,6 +77,9 @@
       <label>Комментарий<br><textarea name="comment" rows="3" cols="60" maxlength="1024"></textarea></label><br>
       <button type="submit">Установить</button>
     </form>
+    {% else %}
+    <p><small>Изделие укомплектовано — состав заблокирован. Чтобы изменить, отметьте «Разукомплектовка» на <a href="/items/{{ item.id }}/stages">странице этапов</a>.</small></p>
+    {% endif %}
   </div>
   {% endif %}
 
@@ -98,7 +104,7 @@
           <td>{{ c.part_unit.serial_number or "—" }}</td>
           <td class="nowrap">{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
           <td class="nowrap">
-            {% if user.role in ('admin', 'engineer') %}
+            {% if user.role in ('admin', 'engineer') and can_edit_components %}
             <form method="post" action="/items/{{ item.id }}/components/{{ c.id }}/remove" style="display:inline">
               <button type="submit">Снять</button>
             </form>
