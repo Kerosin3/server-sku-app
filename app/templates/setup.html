@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Первоначальная настройка — Server Tracker{% endblock %}
+{% block content %}
+<h1>Первоначальная настройка</h1>
+<p>Пользователей ещё нет — создайте первого администратора.</p>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+<form method="post" action="/setup">
+  <label>Логин администратора <input type="text" name="username" required></label><br>
+  <label>Пароль <input type="password" name="password" required minlength="8"></label><br>
+  <label>Повторите пароль <input type="password" name="password_confirm" required minlength="8"></label><br>
+  <label>Секретный вопрос <input type="text" name="security_question" required placeholder="напр. Девичья фамилия матери?"></label><br>
+  <label>Ответ на секретный вопрос <input type="text" name="security_answer" required></label><br>
+  <p><small>Секретный вопрос понадобится, если вы забудете пароль администратора — восстановить доступ будет больше некому.</small></p>
+  <button type="submit">Создать администратора</button>
+</form>
+{% endblock %}

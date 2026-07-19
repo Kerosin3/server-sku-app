@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.auth import ROLES_ORDER, hash_password
 from app.models import User
 from app.services import audit
+from app.services.security_answers import normalize_answer
 
 
 MIN_PASSWORD_LENGTH = 8
@@ -28,6 +29,10 @@ class InvalidRoleError(Exception):
 
 
 class WeakPasswordError(Exception):
+    pass
+
+
+class MissingSecurityQuestionError(Exception):
     pass
 
 
@@ -135,3 +140,23 @@ def reset_password(db: Session, *, actor: User, target: User, new_password: str)
         diff={"password_reset": True},
     )
     db.commit()
+
+
+def set_security_question(db: Session, *, user: User, question: str, answer: str) -> User:
+    """Self-service only — enforced by the caller (actor must be the target)."""
+    if not question.strip() or not answer.strip():
+        raise MissingSecurityQuestionError()
+
+    user.security_question = question.strip()
+    user.security_answer_hash = hash_password(normalize_answer(answer))
+    audit.record(
+        db,
+        actor_id=user.id,
+        entity_type="user",
+        entity_id=user.id,
+        action="update",
+        diff={"security_question_set": True},
+    )
+    db.commit()
+    db.refresh(user)
+    return user

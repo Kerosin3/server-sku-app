@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Секретный вопрос — Server Tracker{% endblock %}
+{% block content %}
+<h1>Секретный вопрос</h1>
+<p>Используется для восстановления доступа на странице «Забыли пароль?», если вы забудете свой пароль.</p>
+{% if saved %}<p style="color:green">Сохранено</p>{% endif %}
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+{% if user.security_question %}
+<p>Текущий вопрос: «{{ user.security_question }}»</p>
+{% endif %}
+<form method="post" action="/account/security-question">
+  <label>Секретный вопрос <input type="text" name="question" required value="{{ user.security_question or '' }}"></label><br>
+  <label>Ответ <input type="text" name="answer" required placeholder="{{ 'введите новый ответ, чтобы изменить' if user.security_question else '' }}"></label><br>
+  <button type="submit">Сохранить</button>
+</form>
+{% endblock %}

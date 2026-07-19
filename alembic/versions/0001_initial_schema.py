@@ -23,6 +23,8 @@ def upgrade() -> None:
         sa.Column("password_hash", sa.String(255), nullable=False),
         sa.Column("role", sa.String(16), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
+        sa.Column("security_question", sa.String(255), nullable=True),
+        sa.Column("security_answer_hash", sa.String(255), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_users_username", "users", ["username"], unique=True)

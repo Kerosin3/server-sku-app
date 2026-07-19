@@ -4,6 +4,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
 from app.routers import (
+    account,
     auth,
     platforms,
     platform_variants,
@@ -22,6 +23,7 @@ app.add_middleware(SessionMiddleware, secret_key=settings.secret_key, same_site=
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(auth.router)
+app.include_router(account.router)
 app.include_router(platforms.router)
 app.include_router(platform_variants.router)
 app.include_router(platform_items.router)
