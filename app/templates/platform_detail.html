@@ -22,7 +22,7 @@
       <td>{{ v.description or "" }}</td>
       <td>{{ v.slots | length }}</td>
       <td>
-        {% if user.role in ('admin', 'engineer') %}
+        {% if user.role == 'admin' %}
         <form method="post" action="/variants/{{ v.id }}/delete" style="display:inline"
               onsubmit="return confirm('Удалить исполнение «{{ v.name }}»?')">
           <button type="submit">Удалить</button>
@@ -36,7 +36,7 @@
   </tbody>
 </table>
 
-{% if user.role in ('admin', 'engineer') %}
+{% if user.role == 'admin' %}
 <form method="post" action="/platforms/{{ platform.id }}/delete"
       onsubmit="return confirm('Удалить платформу «{{ platform.name }}»?')">
   <button type="submit">Удалить платформу</button>

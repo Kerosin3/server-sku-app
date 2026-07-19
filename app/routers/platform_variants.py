@@ -181,7 +181,7 @@ def delete_variant(
     request: Request,
     variant_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role("engineer")),
+    user: User = Depends(require_role("admin")),
 ):
     variant = _get_variant_or_404(db, variant_id)
     platform = variant.platform

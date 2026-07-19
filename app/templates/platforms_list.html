@@ -20,7 +20,7 @@
       <td>{{ p.description or "" }}</td>
       <td>{{ p.variants | length }}</td>
       <td>
-        {% if user.role in ('admin', 'engineer') %}
+        {% if user.role == 'admin' %}
         <form method="post" action="/platforms/{{ p.id }}/delete" style="display:inline"
               onsubmit="return confirm('Удалить платформу «{{ p.name }}»?')">
           <button type="submit">Удалить</button>

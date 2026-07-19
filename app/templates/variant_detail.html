@@ -179,7 +179,7 @@
   </tbody>
 </table>
 
-{% if user.role in ('admin', 'engineer') %}
+{% if user.role == 'admin' %}
 <form method="post" action="/variants/{{ variant.id }}/delete"
       onsubmit="return confirm('Удалить исполнение «{{ variant.name }}»?')">
   <button type="submit">Удалить исполнение</button>

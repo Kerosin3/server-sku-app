@@ -96,7 +96,7 @@ def delete_platform(
     request: Request,
     platform_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role("engineer")),
+    user: User = Depends(require_role("admin")),
 ):
     platform = _get_platform_or_404(db, platform_id)
     try:
