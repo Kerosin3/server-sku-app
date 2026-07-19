@@ -41,7 +41,7 @@
       <td><a href="/platforms/{{ i.platform_variant.platform.id }}">{{ i.platform_variant.platform.name }}</a></td>
       <td><a href="/variants/{{ i.platform_variant.id }}">{{ i.platform_variant.name }}</a></td>
       <td>{{ i.status | label('platform_status') }}</td>
-      <td>{{ i.updated_at.strftime('%Y-%m-%d') }}</td>
+      <td>{{ i.updated_at | msk_date }}</td>
     </tr>
     {% else %}
     <tr><td colspan="5">Изделий пока нет</td></tr>

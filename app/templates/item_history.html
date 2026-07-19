@@ -17,7 +17,7 @@
     {% for e in events %}
     <tr>
       <td>{{ e.event_type | label('platform_event_type') }}</td>
-      <td>{{ e.occurred_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ e.occurred_at | msk_datetime }}</td>
       <td>{{ e.user.username if e.user else "—" }}</td>
       <td>{{ e.notes or "—" }}</td>
     </tr>
@@ -40,8 +40,8 @@
         {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
       </td>
       <td>{{ c.part_unit.serial_number or "—" }}</td>
-      <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
-      <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>
+      <td>{{ c.installed_at | msk_date }}</td>
+      <td>{{ c.removed_at | msk_date }}</td>
     </tr>
     {% else %}
     <tr><td colspan="4">История пуста</td></tr>

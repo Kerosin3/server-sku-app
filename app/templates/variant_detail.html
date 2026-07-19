@@ -169,7 +169,7 @@
       <td><a href="/variants/{{ variant.id }}/files/{{ f.id }}">{{ f.original_filename }}</a></td>
       <td class="nowrap">{{ f.size_bytes | filesizeformat }}</td>
       <td>{{ f.uploaded_by.username if f.uploaded_by else "—" }}</td>
-      <td class="nowrap">{{ f.uploaded_at.strftime('%Y-%m-%d') }}</td>
+      <td class="nowrap">{{ f.uploaded_at | msk_date }}</td>
       <td>
         <form method="post" action="/variants/{{ variant.id }}/files/{{ f.id }}/delete" style="display:inline"
               onsubmit="return confirm('Удалить файл «{{ f.original_filename }}»?')">

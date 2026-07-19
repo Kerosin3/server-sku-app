@@ -4,17 +4,23 @@ platform_item to a single JSON document — as-built configuration,
 firmware/MAC state, and the full event log, for handing off to a
 customer or archiving outside the app. See AGENTS.md roadmap.
 """
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.i18n import label
 from app.models import FirmwareRecord, MacAddress, PlatformComponent, PlatformItem
+from app.timezone import to_msk
 
 
-def _dt(value: datetime | date | None) -> str | None:
-    return value.isoformat() if value is not None else None
+def _dt(value: datetime | None) -> str | None:
+    # MSK, not UTC — this is what a person reading the export actually
+    # cares about; a JSON null (not the string "—") for a genuinely
+    # unset date (e.g. removed_at on a still-installed component) keeps
+    # the field machine-checkable with `is None`. No microseconds —
+    # they're never meaningful here and just add visual noise.
+    return to_msk(value).strftime("%Y-%m-%d %H:%M:%S MSK") if value is not None else None
 
 
 def _component_dict(c: PlatformComponent) -> dict:

@@ -39,7 +39,7 @@
     {% for e in recent_events %}
     <tr>
       <td>{{ e.event_type | label('platform_event_type') }}</td>
-      <td>{{ e.occurred_at.strftime('%Y-%m-%d %H:%M') }}</td>
+      <td>{{ e.occurred_at | msk_datetime }}</td>
       <td>{{ e.user.username if e.user else "—" }}</td>
       <td>{{ e.notes or "—" }}</td>
     </tr>

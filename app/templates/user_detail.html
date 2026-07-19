@@ -6,7 +6,7 @@
 
 <p>
   Статус: {{ "Активен" if target.is_active else "Деактивирован" }}<br>
-  Создан: {{ target.created_at.strftime('%Y-%m-%d') }}
+  Создан: {{ target.created_at | msk_date }}
 </p>
 
 <h2>Роль</h2>

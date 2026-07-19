@@ -102,7 +102,7 @@
             {% if c.part_unit.notes %}<span class="comment-hint" title="{{ c.part_unit.notes }}">💬</span>{% endif %}
           </td>
           <td>{{ c.part_unit.serial_number or "—" }}</td>
-          <td class="nowrap">{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
+          <td class="nowrap">{{ c.installed_at | msk_date }}</td>
           <td class="nowrap">
             {% if user.role in ('admin', 'engineer') and can_edit_components %}
             <form method="post" action="/items/{{ item.id }}/components/{{ c.id }}/remove" style="display:inline">
@@ -131,7 +131,7 @@
       <td><a href="/items/{{ item.id }}/files/{{ f.id }}">{{ f.original_filename }}</a></td>
       <td class="nowrap">{{ f.size_bytes | filesizeformat }}</td>
       <td>{{ f.uploaded_by.username if f.uploaded_by else "—" }}</td>
-      <td class="nowrap">{{ f.uploaded_at.strftime('%Y-%m-%d') }}</td>
+      <td class="nowrap">{{ f.uploaded_at | msk_date }}</td>
       <td>
         <form method="post" action="/items/{{ item.id }}/files/{{ f.id }}/delete" style="display:inline"
               onsubmit="return confirm('Удалить файл «{{ f.original_filename }}»?')">

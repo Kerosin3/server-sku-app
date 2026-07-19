@@ -15,7 +15,7 @@
       <td><a href="/users/{{ u.id }}">{{ u.username }}</a></td>
       <td>{{ u.role | label('role') }}</td>
       <td>{{ "Активен" if u.is_active else "Деактивирован" }}</td>
-      <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+      <td>{{ u.created_at | msk_date }}</td>
     </tr>
     {% else %}
     <tr><td colspan="4">Пользователей пока нет</td></tr>
