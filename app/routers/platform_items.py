@@ -1,11 +1,14 @@
+import json
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_role
 from app.db import get_db
 from app.i18n import PLATFORM_EVENT_TYPES
 from app.models import PlatformItem, PlatformVariant, User
+from app.services import export as export_service
 from app.services import firmware_records as firmware_records_service
 from app.services import mac_addresses as mac_service
 from app.services import platform_events as events_service
@@ -125,6 +128,22 @@ def item_detail(
 ):
     item = _get_item_or_404(db, item_id)
     return templates.TemplateResponse(request, "item_detail.html", _detail_context(item, user))
+
+
+@router.get("/items/{item_id}/export")
+def export_item(
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    item = _get_item_or_404(db, item_id)
+    data = export_service.export_item(db, item, include_customer=user.role != "viewer")
+    body = json.dumps(data, indent=2, ensure_ascii=False)
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{item.asset_tag}.json"'},
+    )
 
 
 @router.get("/items/{item_id}/stages", response_class=HTMLResponse)
