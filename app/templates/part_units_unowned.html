@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Детали без владельца — Server SKU Tracker{% endblock %}
+{% block content %}
+<h1>Детали без владельца</h1>
+<p><small>Детали, снятые с изделий (или оставшиеся без записи после удаления изделия) и сейчас ни к чему не привязанные — фактически на складе.</small></p>
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+<table>
+  <thead>
+    <tr><th>Обозначение</th><th>Деталь</th><th>Серийный номер</th><th>Было в изделии</th><th>Снято</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.last_component.platform_variant_slot.slot_name if row.last_component and row.last_component.platform_variant_slot else "—" }}</td>
+      <td>
+        {{ row.part_unit.part_type.category.name }} —
+        {% if row.part_unit.part_type.manufacturer %}{{ row.part_unit.part_type.manufacturer }} {% endif %}{{ row.part_unit.part_type.model_name }}
+        {% if row.part_unit.notes %}<span class="comment-hint" title="{{ row.part_unit.notes }}">💬</span>{% endif %}
+      </td>
+      <td>{{ row.part_unit.serial_number or "—" }}</td>
+      <td>
+        {% if row.last_component and row.last_component.platform_item %}
+        <a href="/items/{{ row.last_component.platform_item.id }}">{{ row.last_component.platform_item.asset_tag }}</a>
+        {% else %}
+        —
+        {% endif %}
+      </td>
+      <td class="nowrap">{{ row.last_component.removed_at | msk_date if row.last_component else "—" }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/part-units/{{ row.part_unit.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Окончательно удалить эту деталь из базы? Это также удалит её историю прошивок и установок безвозвратно.')">
+          <button type="submit">Удалить окончательно</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6">Деталей без владельца нет</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
