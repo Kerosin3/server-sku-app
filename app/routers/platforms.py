@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_user, require_role
@@ -11,19 +11,38 @@ from app.templating import templates
 
 router = APIRouter(tags=["platforms"])
 
+# query param -> ORDER BY columns. Platform/variant sort by name (what's
+# actually shown), not id, so it reads alphabetically rather than by
+# creation order.
+_SORT_COLUMNS = {
+    "asset_tag": PlatformItem.asset_tag,
+    "platform": Platform.name,
+    "variant": PlatformVariant.name,
+}
+_DEFAULT_SORT = "id"
+
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard(
     request: Request,
     variant_id: int | None = None,
+    sort: str = _DEFAULT_SORT,
+    dir: str = "desc",
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    stmt = (
-        select(PlatformItem)
-        .options(selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.platform))
-        .order_by(PlatformItem.id.desc())
+    direction = "asc" if dir == "asc" else "desc"
+    stmt = select(PlatformItem).options(
+        selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.platform)
     )
+
+    sort_column = _SORT_COLUMNS.get(sort)
+    if sort_column is not None:
+        stmt = stmt.join(PlatformItem.platform_variant).join(PlatformVariant.platform)
+    else:
+        sort_column = PlatformItem.id
+    stmt = stmt.order_by(sort_column.asc() if direction == "asc" else sort_column.desc())
+
     if variant_id is not None:
         stmt = stmt.where(PlatformItem.platform_variant_id == variant_id)
     items = db.scalars(stmt).all()
@@ -31,7 +50,14 @@ def dashboard(
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {"items": items, "platforms": platforms, "selected_variant_id": variant_id, "user": user},
+        {
+            "items": items,
+            "platforms": platforms,
+            "selected_variant_id": variant_id,
+            "sort": sort if sort in _SORT_COLUMNS else _DEFAULT_SORT,
+            "dir": direction,
+            "user": user,
+        },
     )
 
 

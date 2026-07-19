@@ -30,9 +30,19 @@
   {% endif %}
 {% endif %}
 
+{% macro sort_link(key, label) %}
+  {% set next_dir = 'asc' if (sort == key and dir == 'desc') else 'desc' %}
+  <a href="?{% if selected_variant_id %}variant_id={{ selected_variant_id }}&{% endif %}sort={{ key }}&dir={{ next_dir }}">{{ label }}{% if sort == key %} {{ "▲" if dir == "asc" else "▼" }}{% endif %}</a>
+{% endmacro %}
 <table>
   <thead>
-    <tr><th>Серийный номер изделия</th><th>Платформа</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>
+    <tr>
+      <th>{{ sort_link('asset_tag', 'Серийный номер изделия') }}</th>
+      <th>{{ sort_link('platform', 'Платформа') }}</th>
+      <th>{{ sort_link('variant', 'Исполнение') }}</th>
+      <th>Статус</th>
+      <th>Обновлено</th>
+    </tr>
   </thead>
   <tbody>
     {% for i in items %}
