@@ -47,6 +47,7 @@ PART_UNIT_STATUSES = {
 
 PLATFORM_STATUSES = {
     "assembly": "Сборка",
+    "assembled": "Укомплектовано",
     "testing": "Тестирование",
     "shipped": "Отгружен",
     "deployed": "В эксплуатации",

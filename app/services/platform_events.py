@@ -13,12 +13,13 @@ from app.i18n import PLATFORM_EVENT_TYPES
 from app.models import PlatformEvent, PlatformItem, User
 
 # Which platform_items.status a milestone advances the item to. Stages
-# not listed here (assembled, test_passed/test_failed/
-# test_passed_with_remarks) are logged without moving
-# platform_items.status — the coarse status only tracks "in assembly/
-# kitting" vs "being tested" vs "shipped", the event log is the source
-# of truth for exactly when each finer-grained milestone happened.
+# not listed here (test_passed/test_failed/test_passed_with_remarks,
+# service) are logged without moving platform_items.status — the coarse
+# status only tracks "being kitted" vs "kitted" vs "being tested" vs
+# "shipped", the event log is the source of truth for exactly when each
+# finer-grained milestone happened (e.g. which test attempt passed).
 _STATUS_ON_EVENT = {
+    "assembled": "assembled",
     "test_started": "testing",
     "shipped": "shipped",
 }

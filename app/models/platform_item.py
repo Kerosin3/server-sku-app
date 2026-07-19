@@ -22,7 +22,7 @@ class PlatformItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     asset_tag: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     platform_variant_id: Mapped[int] = mapped_column(ForeignKey("platform_variants.id"), index=True)
-    status: Mapped[str] = mapped_column(String(24), default="assembly")  # assembly|testing|shipped|deployed|rma|decommissioned
+    status: Mapped[str] = mapped_column(String(24), default="assembly")  # assembly|assembled|testing|shipped|deployed|rma|decommissioned
     customer: Mapped[str | None] = mapped_column(String(128), nullable=True)  # hide for role "viewer" in templates
     location: Mapped[str | None] = mapped_column(String(128), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(2048), nullable=True)
