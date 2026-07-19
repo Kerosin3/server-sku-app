@@ -162,6 +162,12 @@ form button[type="submit"] { margin-top: 0.3rem; }
 .columns > div { flex: 1; min-width: 0; }
 .columns > .col-form { flex: 0 1 340px; }
 .columns > .col-wide { flex: 1.4; }
+/* table's default auto layout sizes columns from unbreakable header
+   words first, then width:100% loses — the table just overflows its
+   flex column instead of shrinking. Fixed layout makes width:100%
+   actually hold, wrapping cell text instead of overflowing. */
+.columns table { table-layout: fixed; }
+.columns th, .columns td { overflow-wrap: break-word; }
 @media (max-width: 800px) {
   .columns { flex-direction: column; }
   .columns > .col-form { flex-basis: auto; }
