@@ -8,10 +8,15 @@
 <h1>{{ item.asset_tag }}</h1>
 {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
+<div class="actions">
+  <a href="/items/{{ item.id }}/stages">Этапы</a>
+  <a href="/items/{{ item.id }}/firmware-mac">Прошивки и MAC</a>
+  <a href="/items/{{ item.id }}/history">История</a>
+  <a href="/items/{{ item.id }}/export">Экспорт (JSON)</a>
+</div>
+
 <p>
-  Статус: {{ item.status | label('platform_status') }} — <a href="/items/{{ item.id }}/stages">этапы →</a>
-  — <a href="/items/{{ item.id }}/firmware-mac">прошивки и MAC →</a>
-  — <a href="/items/{{ item.id }}/export">экспорт (JSON) ↓</a><br>
+  Статус: {{ item.status | label('platform_status') }}<br>
   {# customer is commercial info — must stay hidden from role "viewer", see AGENTS.md "Роли и доступ" #}
   {% if user.role != 'viewer' %}
   Заказчик: {{ item.customer or "—" }}<br>
@@ -104,8 +109,6 @@
   <button type="submit">Установить</button>
 </form>
 {% endif %}
-
-<p><a href="/items/{{ item.id }}/history">История (этапы и снятые компоненты) →</a></p>
 
 {% if user.role in ('admin', 'engineer') and item.status != 'shipped' %}
 <form method="post" action="/items/{{ item.id }}/delete"
