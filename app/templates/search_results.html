@@ -22,7 +22,7 @@
         {% for row in parts %}
         <tr>
           <td>{{ row.part_unit.part_type.category.name }} — {{ row.part_unit.part_type.manufacturer }} {{ row.part_unit.part_type.model_name }}</td>
-          <td>{{ row.part_unit.serial_number }}</td>
+          <td>{{ row.part_unit.serial_number or "—" }}</td>
           <td>
             {% if row.current_item %}
             установлена в <a href="/items/{{ row.current_item.id }}">{{ row.current_item.asset_tag }}</a>

@@ -39,7 +39,7 @@
         {{ c.part_unit.part_type.category.name }} —
         {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
       </td>
-      <td>{{ c.part_unit.serial_number }}</td>
+      <td>{{ c.part_unit.serial_number or "—" }}</td>
       <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
       <td>{{ c.removed_at.strftime('%Y-%m-%d') }}</td>
     </tr>

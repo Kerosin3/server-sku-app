@@ -11,7 +11,7 @@ class PartUnit(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     part_type_id: Mapped[int] = mapped_column(ForeignKey("part_types.id"), index=True)
-    serial_number: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    serial_number: Mapped[str | None] = mapped_column(String(128), unique=True, index=True, nullable=True)
     status: Mapped[str] = mapped_column(String(16), default="in_stock")  # in_stock|installed|rma|scrapped|retired
     manufacture_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     received_date: Mapped[date | None] = mapped_column(Date, nullable=True)

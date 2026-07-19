@@ -38,6 +38,10 @@ class ArticleRequiredError(Exception):
     """Serial number is unknown and no article was given to register a new part."""
 
 
+class CommentRequiredError(Exception):
+    """No serial number given and no comment either — nothing to identify the part by."""
+
+
 class PartUnitAlreadyInstalledError(Exception):
     pass
 
@@ -163,7 +167,7 @@ def update_details(
 
 
 def _find_or_create_part_unit(
-    db: Session, *, slot: PlatformVariantSlot, serial_number: str, article: str | None, comment: str | None
+    db: Session, *, slot: PlatformVariantSlot, serial_number: str | None, article: str | None, comment: str | None
 ) -> PartUnit:
     """
     part_types/part_units have no CRUD of their own yet (AGENTS.md roadmap
@@ -194,11 +198,16 @@ def install_component(
     *,
     actor: User,
     item: PlatformItem,
-    serial_number: str,
+    serial_number: str | None,
     platform_variant_slot_id: int,
     article: str | None,
     comment: str | None,
 ) -> PlatformComponent:
+    serial_number = (serial_number or "").strip() or None
+    comment = (comment or "").strip() or None
+    if serial_number is None and not comment:
+        raise CommentRequiredError()
+
     slot = db.scalar(
         select(PlatformVariantSlot).where(
             PlatformVariantSlot.id == platform_variant_slot_id,
@@ -208,7 +217,14 @@ def install_component(
     if slot is None:
         raise SlotNotFoundError(platform_variant_slot_id)
 
-    part_unit = db.scalar(select(PartUnit).where(PartUnit.serial_number == serial_number))
+    # No serial number means there is nothing to look an existing part_unit
+    # up by — always register a new one (still requires article, same as
+    # any never-before-seen serial number).
+    part_unit = (
+        db.scalar(select(PartUnit).where(PartUnit.serial_number == serial_number))
+        if serial_number is not None
+        else None
+    )
     if part_unit is None:
         part_unit = _find_or_create_part_unit(
             db, slot=slot, serial_number=serial_number, article=article, comment=comment

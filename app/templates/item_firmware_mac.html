@@ -39,7 +39,7 @@
   <label>Деталь (плата собственной разработки)
     <select name="part_unit_id" required>
       {% for c in firmware_eligible_components %}
-      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number }}</option>
+      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number or "без серийника" }}</option>
       {% else %}
       <option value="" disabled selected>— нет установленных плат собственной разработки —</option>
       {% endfor %}
@@ -118,7 +118,7 @@
     <select name="part_unit_id">
       <option value="">Изделие целиком (напр. management-порт шасси)</option>
       {% for c in installed_components %}
-      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number }}</option>
+      <option value="{{ c.part_unit_id }}">{{ c.part_unit.part_type.category.name }} — {{ c.part_unit.serial_number or "без серийника" }}</option>
       {% endfor %}
     </select>
   </label><br>

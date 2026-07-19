@@ -121,7 +121,7 @@ def upgrade() -> None:
         "part_units",
         sa.Column("id", sa.Integer(), primary_key=True),
         sa.Column("part_type_id", sa.Integer(), sa.ForeignKey("part_types.id"), nullable=False),
-        sa.Column("serial_number", sa.String(128), nullable=False),
+        sa.Column("serial_number", sa.String(128), nullable=True),
         sa.Column("status", sa.String(16), nullable=False, server_default="in_stock"),
         sa.Column("manufacture_date", sa.Date(), nullable=True),
         sa.Column("received_date", sa.Date(), nullable=True),

@@ -68,7 +68,7 @@
             {% if c.part_unit.part_type.manufacturer %}{{ c.part_unit.part_type.manufacturer }} {% endif %}{{ c.part_unit.part_type.model_name }}
             {% if c.part_unit.notes %}<span class="comment-hint" title="{{ c.part_unit.notes }}">💬</span>{% endif %}
           </td>
-          <td>{{ c.part_unit.serial_number }}</td>
+          <td>{{ c.part_unit.serial_number or "—" }}</td>
           <td>{{ c.installed_at.strftime('%Y-%m-%d') }}</td>
           <td>
             {% if user.role in ('admin', 'engineer') %}
@@ -97,7 +97,7 @@
       {% endfor %}
     </select>
   </label><br>
-  <label>Серийный номер компонента <input type="text" name="serial_number" required></label><br>
+  <label>Серийный номер компонента <input type="text" name="serial_number" placeholder="оставьте пустым, если нет — тогда нужен комментарий"></label><br>
   <label>Артикул (партномер) <input type="text" name="article" placeholder="напр. Xeon Gold 6338"></label><br>
   <label>Комментарий<br><textarea name="comment" rows="3" cols="60" maxlength="1024"></textarea></label><br>
   <button type="submit">Установить</button>
