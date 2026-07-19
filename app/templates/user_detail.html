@@ -32,7 +32,7 @@
 
 <h2>Сброс пароля</h2>
 <form method="post" action="/users/{{ target.id }}/reset-password">
-  <label>Новый пароль <input type="password" name="new_password" required></label>
+  <label>Новый пароль <input type="password" name="new_password" required minlength="8"></label>
   <button type="submit">Сбросить пароль</button>
 </form>
 

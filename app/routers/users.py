@@ -49,6 +49,17 @@ def create_user(
 ):
     try:
         users_service.create_user(db, actor=user, username=username, password=password, role=role)
+    except users_service.WeakPasswordError:
+        return templates.TemplateResponse(
+            request,
+            "user_form.html",
+            {
+                "user": user,
+                "roles": ROLES_ORDER,
+                "error": f"Пароль слишком короткий — минимум {users_service.MIN_PASSWORD_LENGTH} символов",
+            },
+            status_code=400,
+        )
     except users_service.UsernameTakenError:
         return templates.TemplateResponse(
             request,
@@ -166,5 +177,18 @@ def reset_password(
     user: User = Depends(require_role("admin")),
 ):
     target = _get_target(db, user_id)
-    users_service.reset_password(db, actor=user, target=target, new_password=new_password)
+    try:
+        users_service.reset_password(db, actor=user, target=target, new_password=new_password)
+    except users_service.WeakPasswordError:
+        return templates.TemplateResponse(
+            request,
+            "user_detail.html",
+            {
+                "user": user,
+                "target": target,
+                "roles": ROLES_ORDER,
+                "error": f"Пароль слишком короткий — минимум {users_service.MIN_PASSWORD_LENGTH} символов",
+            },
+            status_code=400,
+        )
     return RedirectResponse(url=f"/users/{user_id}", status_code=303)

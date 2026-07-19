@@ -1,4 +1,5 @@
 import json
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -161,10 +162,20 @@ def export_item(
     item = _get_item_or_404(db, item_id)
     data = export_service.export_item(db, item, include_customer=user.role != "viewer")
     body = json.dumps(data, indent=2, ensure_ascii=False)
+    # asset_tag is free-text and commonly Cyrillic in this app — HTTP header
+    # values must be latin-1, so a non-ASCII filename= alone crashes with
+    # UnicodeEncodeError. ASCII-safe fallback for old clients, RFC 5987
+    # filename* for everything modern (all current browsers).
+    ascii_fallback = "".join(c if c.isascii() else "_" for c in item.asset_tag) or "item"
+    encoded = quote(item.asset_tag)
     return Response(
         content=body,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{item.asset_tag}.json"'},
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{ascii_fallback}.json"; filename*=UTF-8\'\'{encoded}.json'
+            )
+        },
     )
 
 

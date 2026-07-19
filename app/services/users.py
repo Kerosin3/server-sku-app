@@ -16,11 +16,18 @@ from app.models import User
 from app.services import audit
 
 
+MIN_PASSWORD_LENGTH = 8
+
+
 class UsernameTakenError(Exception):
     pass
 
 
 class InvalidRoleError(Exception):
+    pass
+
+
+class WeakPasswordError(Exception):
     pass
 
 
@@ -50,6 +57,8 @@ def _active_admin_count(db: Session, *, exclude_id: int | None = None) -> int:
 
 def create_user(db: Session, *, actor: User, username: str, password: str, role: str) -> User:
     _check_role(role)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise WeakPasswordError()
     if db.scalar(select(User).where(User.username == username)) is not None:
         raise UsernameTakenError(username)
 
@@ -114,6 +123,8 @@ def set_active(db: Session, *, actor: User, target: User, is_active: bool) -> Us
 
 
 def reset_password(db: Session, *, actor: User, target: User, new_password: str) -> None:
+    if len(new_password) < MIN_PASSWORD_LENGTH:
+        raise WeakPasswordError()
     target.password_hash = hash_password(new_password)
     audit.record(
         db,
