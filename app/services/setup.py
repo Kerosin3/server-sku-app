@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import hash_password
 from app.models import User
+from app.services.demo_seed import seed_demo_data
 from app.services.users import MIN_PASSWORD_LENGTH, WeakPasswordError
 from app.services.security_answers import normalize_answer
 
@@ -51,4 +52,7 @@ def create_first_admin(
     db.add(user)
     db.commit()
     db.refresh(user)
+
+    seed_demo_data(db, actor=user)
+
     return user

@@ -7,6 +7,8 @@ import getpass
 from app.auth import hash_password
 from app.db import SessionLocal
 from app.models import User
+from app.services.demo_seed import seed_demo_data
+from app.services.setup import needs_setup
 
 
 def main():
@@ -17,10 +19,15 @@ def main():
         if db.query(User).filter_by(username=username).first():
             print("A user with this username already exists.")
             return
+        is_first_user = needs_setup(db)
         user = User(username=username, password_hash=hash_password(password), role="admin")
         db.add(user)
         db.commit()
         print(f"Created user {username} with role admin.")
+
+        if is_first_user:
+            seed_demo_data(db, actor=user)
+            print("Seeded demo platform/variant/item (DEMO 4U AI Server / DEMO-0001).")
     finally:
         db.close()
 
