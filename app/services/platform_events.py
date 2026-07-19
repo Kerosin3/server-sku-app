@@ -33,6 +33,7 @@ _PREREQUISITES: dict[str, tuple[set[str], str]] = {
     "test_passed_with_remarks": ({"test_started"}, "Нельзя завершить тест, который не был начат"),
     "test_failed": ({"test_started"}, "Нельзя завершить тест, который не был начат"),
     "shipped": ({"test_passed", "test_passed_with_remarks"}, "Нельзя отгрузить изделие без пройденного теста"),
+    "service": ({"shipped"}, "Нельзя провести сервисное обслуживание неотгруженного изделия"),
 }
 
 

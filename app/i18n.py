@@ -66,6 +66,7 @@ PLATFORM_EVENT_TYPES = {
     "test_passed_with_remarks": "Тест пройден с замечаниями",
     "test_failed": "Тест не пройден",
     "shipped": "Отгружено",
+    "service": "Сервисное обслуживание",
 }
 
 FIRMWARE_IMAGE_SLOTS = {

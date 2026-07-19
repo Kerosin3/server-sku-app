@@ -32,7 +32,8 @@ class PlatformEvent(Base):
     types can be added without a migration — but every event_type used in
     the UI must have a Russian label registered in app/i18n.py
     (PLATFORM_EVENT_TYPES). Current set (process order): assembled,
-    test_started, test_finished, shipped.
+    test_started, test_passed/test_passed_with_remarks/test_failed,
+    shipped, service.
 
     platform_items.status stays as a coarse "current stage" field for
     fast filtering/listing (see PlatformItem model) — the service layer
