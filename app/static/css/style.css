@@ -161,7 +161,7 @@ form button[type="submit"] { margin-top: 0.3rem; }
 .columns { display: flex; flex-wrap: wrap; gap: 2rem; align-items: flex-start; }
 .columns > div { flex: 1; min-width: 0; }
 .columns > .col-form { flex: 0 1 340px; }
-.columns > .col-wide { flex: 1.4; }
+.columns > .col-wide { flex: 1.6; }
 /* table's default auto layout sizes columns from unbreakable header
    words first, then width:100% loses — the table just overflows its
    flex column instead of shrinking. Fixed layout makes width:100%
@@ -172,11 +172,13 @@ form button[type="submit"] { margin-top: 0.3rem; }
   -webkit-hyphens: auto;
   hyphens: auto; /* break at syllables ("ОБОЗНА-ЧЕНИЕ"), not mid-letter, when a column is too narrow for the whole word */
 }
-/* Not enough room for 3 columns of real content — drop the install
-   form to its own row so the two tables get the width to themselves. */
-@media (max-width: 1100px) {
-  .columns > .col-form { flex-basis: 100%; }
-}
+/* Columns with inherently short, fixed-format content (dates, counts,
+   short IDs, a lone button) — never wrap those, let the free-text
+   columns (Обозначение, Деталь) have the room instead; see colgroup
+   widths in item_detail.html. Deliberately no text-overflow:ellipsis —
+   hiding part of a serial number or date is worse than an odd-looking
+   column, the whole point is these stay fully readable. */
+.nowrap { white-space: nowrap; }
 @media (max-width: 800px) {
   .columns { flex-direction: column; }
   .columns > .col-form { flex-basis: auto; }
