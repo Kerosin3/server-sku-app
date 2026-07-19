@@ -13,6 +13,7 @@ from app.models.platform_component import PlatformComponent
 from app.models.platform_event import PlatformEvent
 from app.models.mac_address import MacAddress
 from app.models.audit_log import AuditLog
+from app.models.login_attempt import LoginAttempt
 
 __all__ = [
     "User",
@@ -31,4 +32,5 @@ __all__ = [
     "PlatformEvent",
     "MacAddress",
     "AuditLog",
+    "LoginAttempt",
 ]

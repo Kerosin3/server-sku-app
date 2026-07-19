@@ -281,6 +281,16 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
 
+    op.create_table(
+        "login_attempts",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("username", sa.String(64), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+    )
+    op.create_index(
+        "ix_login_attempts_username_created_at", "login_attempts", ["username", "created_at"]
+    )
+
     # Starter set of part categories — fully editable/extensible via the
     # /part-categories UI afterward, this is just a reasonable default so
     # the constructor isn't empty on first use. All global (NULL
@@ -329,6 +339,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index("ix_login_attempts_username_created_at", table_name="login_attempts")
+    op.drop_table("login_attempts")
     op.drop_table("audit_log")
     op.drop_index("ix_mac_addresses_part_unit_id", table_name="mac_addresses")
     op.drop_index("ix_mac_addresses_platform_item_id", table_name="mac_addresses")
