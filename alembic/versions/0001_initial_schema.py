@@ -130,9 +130,10 @@ def upgrade() -> None:
         sa.Column("notes", sa.String(1024), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.UniqueConstraint("part_type_id", "serial_number", name="uq_part_unit_type_serial"),
     )
     op.create_index("ix_part_units_part_type_id", "part_units", ["part_type_id"])
-    op.create_index("ix_part_units_serial_number", "part_units", ["serial_number"], unique=True)
+    op.create_index("ix_part_units_serial_number", "part_units", ["serial_number"])
 
     op.create_table(
         "firmware_records",

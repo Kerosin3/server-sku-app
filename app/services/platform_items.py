@@ -205,33 +205,6 @@ def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
     db.commit()
 
 
-def _find_or_create_part_unit(
-    db: Session, *, slot: PlatformVariantSlot, serial_number: str | None, article: str | None, comment: str | None
-) -> PartUnit:
-    """
-    part_types/part_units have no CRUD of their own yet (AGENTS.md roadmap
-    item 2), so a never-before-seen serial number is registered here on
-    the fly: find-or-create a PartType by (category, article) within the
-    slot's category — article is always required for a new part.
-    """
-    if not article:
-        raise ArticleRequiredError(serial_number)
-    part_type = db.scalar(
-        select(PartType).where(
-            PartType.category_id == slot.category_id, func.lower(PartType.model_name) == article.lower()
-        )
-    )
-    if part_type is None:
-        part_type = PartType(category_id=slot.category_id, manufacturer="", model_name=article)
-        db.add(part_type)
-        db.flush()
-
-    part_unit = PartUnit(part_type_id=part_type.id, serial_number=serial_number, notes=comment or None)
-    db.add(part_unit)
-    db.flush()
-    return part_unit
-
-
 def install_component(
     db: Session,
     *,
@@ -242,8 +215,23 @@ def install_component(
     article: str | None,
     comment: str | None,
 ) -> PlatformComponent:
+    """
+    part_types/part_units have no CRUD of their own yet (AGENTS.md
+    roadmap item 2), so a never-before-seen (article, serial_number) is
+    registered here on the fly.
+
+    serial_number is unique per part_type (article), not globally (see
+    PartUnit) — two different articles can legitimately share a serial.
+    So an existing part_unit is looked up scoped to the resolved
+    part_type when article is given. Without an article, the best we
+    can do is a global lookup by serial_number alone (to let an
+    already-registered part be reinstalled without re-typing its
+    article) — ambiguous only in the rare case where two different
+    articles happen to share this exact serial number.
+    """
     serial_number = (serial_number or "").strip() or None
     comment = (comment or "").strip() or None
+    article = (article or "").strip() or None
     if serial_number is None and not comment:
         raise CommentRequiredError()
 
@@ -256,18 +244,35 @@ def install_component(
     if slot is None:
         raise SlotNotFoundError(platform_variant_slot_id)
 
-    # No serial number means there is nothing to look an existing part_unit
-    # up by — always register a new one (still requires article, same as
-    # any never-before-seen serial number).
-    part_unit = (
-        db.scalar(select(PartUnit).where(PartUnit.serial_number == serial_number))
-        if serial_number is not None
-        else None
-    )
-    if part_unit is None:
-        part_unit = _find_or_create_part_unit(
-            db, slot=slot, serial_number=serial_number, article=article, comment=comment
+    part_type = None
+    if article:
+        part_type = db.scalar(
+            select(PartType).where(
+                PartType.category_id == slot.category_id, func.lower(PartType.model_name) == article.lower()
+            )
         )
+
+    part_unit = None
+    if serial_number is not None:
+        if part_type is not None:
+            part_unit = db.scalar(
+                select(PartUnit).where(
+                    PartUnit.part_type_id == part_type.id, PartUnit.serial_number == serial_number
+                )
+            )
+        elif article is None:
+            part_unit = db.scalar(select(PartUnit).where(PartUnit.serial_number == serial_number))
+
+    if part_unit is None:
+        if not article:
+            raise ArticleRequiredError(serial_number)
+        if part_type is None:
+            part_type = PartType(category_id=slot.category_id, manufacturer="", model_name=article)
+            db.add(part_type)
+            db.flush()
+        part_unit = PartUnit(part_type_id=part_type.id, serial_number=serial_number, notes=comment or None)
+        db.add(part_unit)
+        db.flush()
 
     already_installed = db.scalar(
         select(PlatformComponent).where(
