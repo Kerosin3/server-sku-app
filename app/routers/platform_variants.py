@@ -237,7 +237,7 @@ def delete_variant_file(
     variant_id: int,
     file_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role("engineer")),
+    user: User = Depends(require_role("admin")),
 ):
     variant = _get_variant_or_404(db, variant_id)
     attachment = _get_variant_file_or_404(db, variant, file_id)

@@ -238,7 +238,7 @@ def delete_item_file(
     item_id: int,
     file_id: int,
     db: Session = Depends(get_db),
-    user: User = Depends(require_role("engineer")),
+    user: User = Depends(require_role("admin")),
 ):
     item = _get_item_or_404(db, item_id)
     attachment = _get_item_file_or_404(db, item, file_id)

@@ -171,10 +171,12 @@
       <td>{{ f.uploaded_by.username if f.uploaded_by else "—" }}</td>
       <td class="nowrap">{{ f.uploaded_at | msk_date }}</td>
       <td>
+        {% if user.role == 'admin' %}
         <form method="post" action="/variants/{{ variant.id }}/files/{{ f.id }}/delete" style="display:inline"
               onsubmit="return confirm('Удалить файл «{{ f.original_filename }}»?')">
           <button type="submit">Удалить</button>
         </form>
+        {% endif %}
       </td>
     </tr>
     {% else %}
