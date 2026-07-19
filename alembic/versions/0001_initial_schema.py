@@ -314,9 +314,6 @@ def upgrade() -> None:
             {"name": "SSD M.2", "group": "purchased"},
             {"name": "Диск LFF", "group": "purchased"},
             {"name": "Диск SFF", "group": "purchased"},
-            {"name": "Райзер", "group": "purchased"},
-            {"name": "Дисковые салазки", "group": "purchased"},
-            {"name": "Комплект рельс для стойки", "group": "purchased"},
             {"name": "Материнская плата", "group": "custom"},
             {"name": "Шасси", "group": "custom"},
             {"name": "Мидплейн", "group": "custom"},
@@ -324,6 +321,9 @@ def upgrade() -> None:
             {"name": "Бэкплейн (задний)", "group": "custom"},
             {"name": "IO-плата", "group": "custom"},
             {"name": "USB-плата", "group": "custom"},
+            {"name": "Райзер", "group": "custom"},
+            {"name": "Дисковые салазки", "group": "custom"},
+            {"name": "Комплект рельс для стойки", "group": "custom"},
         ],
     )
 
