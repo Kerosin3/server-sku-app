@@ -8,7 +8,7 @@ import re
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import MacAddress, PartUnit, PlatformComponent, PlatformItem
+from app.models import MacAddress, PartType, PartUnit, PlatformComponent, PlatformItem
 
 MIN_QUERY_LENGTH = 2
 
@@ -34,10 +34,22 @@ def search(db: Session, q: str) -> dict:
         .limit(20)
     ).all()
 
+    # Matches serial number as well as the part's article/партномер/
+    # децимальный номер (PartType.model_name — see "Артикул (партномер,
+    # децимальный номер)" on the install-component form) and
+    # manufacturer, so a search by decimal number alone still resolves
+    # to where every unit of that part is currently installed.
     part_units = db.scalars(
         select(PartUnit)
+        .join(PartUnit.part_type)
         .options(selectinload(PartUnit.part_type))
-        .where(PartUnit.serial_number.ilike(f"%{q}%"))
+        .where(
+            or_(
+                PartUnit.serial_number.ilike(f"%{q}%"),
+                PartType.model_name.ilike(f"%{q}%"),
+                PartType.manufacturer.ilike(f"%{q}%"),
+            )
+        )
         .limit(20)
     ).all()
     parts = [{"part_unit": p, "current_item": _current_item_for_part_unit(db, p.id)} for p in part_units]
