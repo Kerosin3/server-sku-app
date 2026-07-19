@@ -2,7 +2,7 @@
 {% block content %}
 <h1>Изделия</h1>
 
-<input type="search" name="q" placeholder="Поиск по серийнику / инвентарному номеру / MAC"
+<input type="search" name="q" placeholder="Поиск по серийному номеру изделия / детали / MAC"
        hx-get="/search" hx-trigger="keyup changed delay:300ms" hx-target="#search-results">
 <div id="search-results"></div>
 
@@ -32,7 +32,7 @@
 
 <table>
   <thead>
-    <tr><th>Инвентарный номер</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>
+    <tr><th>Серийный номер изделия</th><th>Исполнение</th><th>Статус</th><th>Обновлено</th></tr>
   </thead>
   <tbody>
     {% for i in items %}
