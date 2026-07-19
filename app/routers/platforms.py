@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_user, require_role
 from app.db import get_db
-from app.models import Platform, PlatformItem, User
+from app.models import Platform, PlatformItem, PlatformVariant, User
 from app.services import platforms as platforms_service
 from app.templating import templates
 
@@ -19,7 +19,11 @@ def dashboard(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    stmt = select(PlatformItem).options(selectinload(PlatformItem.platform_variant)).order_by(PlatformItem.id.desc())
+    stmt = (
+        select(PlatformItem)
+        .options(selectinload(PlatformItem.platform_variant).selectinload(PlatformVariant.platform))
+        .order_by(PlatformItem.id.desc())
+    )
     if variant_id is not None:
         stmt = stmt.where(PlatformItem.platform_variant_id == variant_id)
     items = db.scalars(stmt).all()
