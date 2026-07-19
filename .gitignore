@@ -6,6 +6,7 @@ venv/
 docker-compose.override.yml
 *.egg-info/
 .pytest_cache/
-backups/*.sql
+backups/
+data/
 .claude/settings.local.json
 .claude/settings.local.json.tmp.*

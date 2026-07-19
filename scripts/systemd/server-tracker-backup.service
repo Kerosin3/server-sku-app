@@ -1,0 +1,10 @@
+[Unit]
+Description=Server SKU Tracker backup (scripts/backup.sh)
+Requires=server-tracker.service
+After=server-tracker.service
+
+[Service]
+Type=oneshot
+# EDIT ME: same path as in server-tracker.service.
+WorkingDirectory=/opt/server-tracker
+ExecStart=/opt/server-tracker/scripts/backup.sh

@@ -9,10 +9,28 @@
 
 ## Запуск (self-hosted, Docker)
 
+Быстрый путь — один скрипт, идемпотентный (безопасно запускать повторно
+после `git pull`, ничего не затирает):
+
+```bash
+./scripts/deploy.sh
+```
+
+Он сам создаст `.env` со случайными `POSTGRES_PASSWORD`/`SECRET_KEY`
+(если `.env` ещё нет), директории `data/postgres` и `data/uploads`,
+поднимет контейнеры и применит миграции.
+
+Вручную то же самое:
+
 ```bash
 cp .env.example .env
 # отредактировать .env: задать POSTGRES_PASSWORD и SECRET_KEY
 #   openssl rand -hex 32   # для SECRET_KEY
+# DATA_DIR/BACKUP_DIR в .env — куда на хосте лягут данные БД, загруженные
+# файлы и бэкапы (bind mount, не анонимный Docker volume — так проще
+# бэкапить и смотреть занятое место напрямую). По умолчанию ./data и
+# ./backups рядом с проектом; в проде разумно указать абсолютный путь,
+# например /srv/server-tracker/data.
 
 docker compose up -d --build
 
@@ -52,22 +70,35 @@ pytest
 
 ## Бэкапы
 
-БД — источник истины по производству, бэкапы обязательны:
+БД — источник истины по производству, бэкапы обязательны. `scripts/backup.sh`
+дампит БД (`pg_dump`, gzip) и архивирует загруженные файлы
+(`$DATA_DIR/uploads`), затем ротирует — оставляет последние
+`BACKUP_RETENTION` копий каждого (по умолчанию 10; при запуске раз в
+3 дня это ~месяц истории):
 
 ```bash
-docker compose exec db pg_dump -U tracker server_tracker > backups/$(date +%F).sql
+./scripts/backup.sh
 ```
 
-Файлы, загруженные к исполнениям (`variant_uploads` volume — архивы
-тестов и т.п.), в дампе БД не участвуют и бэкапятся отдельно:
+Раз в 3 дня через cron на хосте:
 
-```bash
-docker run --rm -v server-tracker_variant_uploads:/data -v "$(pwd)/backups:/backup" \
-  alpine tar czf /backup/variant_uploads-$(date +%F).tar.gz -C /data .
+```cron
+0 3 */3 * * cd /path/to/server-tracker && ./scripts/backup.sh >> /var/log/server-tracker-backup.log 2>&1
 ```
 
-Вынесите обе команды в cron на хосте и храните копии вне контейнера/сервера.
+Или через systemd-таймер вместо cron — см. `scripts/systemd/README.md`
+(юниты в репозитории не включены, только заготовка — накатить руками,
+когда решите, что пора). Храните копии из `$BACKUP_DIR` также вне
+контейнера/сервера (второй хост, S3, что угодно) — локальная копия на
+том же диске не защищает от отказа диска/сервера целиком.
+
 См. также AGENTS.md → «Где физически хранятся данные».
+
+## Автозапуск при перезагрузке сервера
+
+Заготовка systemd-юнита — `scripts/systemd/server-tracker.service`
+(`docker compose up -d` при старте системы). Не установлен и не
+включён — см. `scripts/systemd/README.md` для ручной установки.
 
 ## Текущий статус
 

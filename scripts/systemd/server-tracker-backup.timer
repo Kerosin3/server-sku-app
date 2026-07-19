@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Server SKU Tracker backup every 3 days
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=3d
+Persistent=true
+
+[Install]
+WantedBy=timers.target
