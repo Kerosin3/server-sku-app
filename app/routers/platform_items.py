@@ -130,6 +130,28 @@ def item_detail(
     return templates.TemplateResponse(request, "item_detail.html", _detail_context(item, user))
 
 
+@router.post("/items/{item_id}/delete", response_class=HTMLResponse)
+def delete_item(
+    request: Request,
+    item_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    variant_id = item.platform_variant_id
+    try:
+        items_service.delete_item(db, actor=user, item=item)
+    except items_service.ItemShippedError:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            _detail_context(item, user, error="Изделие уже отгружено — удалить нельзя"),
+            status_code=409,
+        )
+    return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
 @router.get("/items/{item_id}/export")
 def export_item(
     item_id: int,

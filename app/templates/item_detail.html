@@ -107,5 +107,12 @@
 
 <p><a href="/items/{{ item.id }}/history">История (этапы и снятые компоненты) →</a></p>
 
+{% if user.role in ('admin', 'engineer') and item.status != 'shipped' %}
+<form method="post" action="/items/{{ item.id }}/delete"
+      onsubmit="return confirm('Удалить изделие «{{ item.asset_tag }}»? Это удалит его комплектность и историю событий.')">
+  <button type="submit">Удалить изделие</button>
+</form>
+{% endif %}
+
 <p><a href="/variants/{{ item.platform_variant.id }}">← К исполнению «{{ item.platform_variant.name }}»</a></p>
 {% endblock %}

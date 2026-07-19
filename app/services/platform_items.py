@@ -10,9 +10,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    MacAddress,
     PartType,
     PartUnit,
     PlatformComponent,
+    PlatformEvent,
     PlatformItem,
     PlatformVariant,
     PlatformVariantFirmwareRequirement,
@@ -44,6 +46,10 @@ class CommentRequiredError(Exception):
 
 class PartUnitAlreadyInstalledError(Exception):
     pass
+
+
+class ItemShippedError(Exception):
+    """Already shipped — this is real delivered-product history, not a mistake to clean up."""
 
 
 class ComponentNotActiveError(Exception):
@@ -164,6 +170,39 @@ def update_details(
         db.commit()
         db.refresh(item)
     return item
+
+
+def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
+    """
+    Blocked once shipped — that's real delivered-product history, not
+    something to clean up after a mistake. part_units that were actively
+    installed go back to "in_stock" (they still physically exist, just no
+    longer tracked as part of this now-deleted item); firmware_records
+    and part_unit-owned mac_addresses stay with the part_unit, since
+    those describe the part itself, not this item. Only this item's own
+    components/events/item-owned MACs are removed.
+    """
+    if item.status == "shipped":
+        raise ItemShippedError(item.id)
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="platform_item",
+        entity_id=item.id,
+        action="delete",
+        diff={"asset_tag": item.asset_tag, "platform_variant_id": item.platform_variant_id},
+    )
+
+    for component in item.components:
+        if component.removed_at is None:
+            component.part_unit.status = "in_stock"
+
+    db.query(MacAddress).filter(MacAddress.platform_item_id == item.id).delete()
+    db.query(PlatformEvent).filter(PlatformEvent.platform_item_id == item.id).delete()
+    db.query(PlatformComponent).filter(PlatformComponent.platform_item_id == item.id).delete()
+    db.delete(item)
+    db.commit()
 
 
 def _find_or_create_part_unit(
