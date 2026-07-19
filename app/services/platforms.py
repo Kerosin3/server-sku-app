@@ -6,10 +6,14 @@ platform_variants: this is reference/catalog data, not inventory state.
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Platform
+from app.models import Platform, PlatformVariant
 
 
 class PlatformNameTakenError(Exception):
+    pass
+
+
+class PlatformInUseError(Exception):
     pass
 
 
@@ -36,3 +40,12 @@ def create_platform(db: Session, *, name: str, description: str | None) -> Platf
     db.commit()
     db.refresh(platform)
     return platform
+
+
+def delete_platform(db: Session, platform: Platform) -> None:
+    """Blocked if the platform still has any variants — delete those first."""
+    if db.scalar(select(PlatformVariant.id).where(PlatformVariant.platform_id == platform.id)) is not None:
+        raise PlatformInUseError(platform.id)
+
+    db.delete(platform)
+    db.commit()

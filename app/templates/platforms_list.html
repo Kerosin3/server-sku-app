@@ -3,13 +3,15 @@
 {% block content %}
 <h1>Платформы</h1>
 
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
 {% if user.role in ('admin', 'engineer') %}
 <p><a href="/platforms/new">+ Новая платформа</a></p>
 {% endif %}
 
 <table>
   <thead>
-    <tr><th>Название</th><th>Описание</th><th>Исполнений</th></tr>
+    <tr><th>Название</th><th>Описание</th><th>Исполнений</th><th></th></tr>
   </thead>
   <tbody>
     {% for p in platforms %}
@@ -17,9 +19,17 @@
       <td><a href="/platforms/{{ p.id }}">{{ p.name }}</a></td>
       <td>{{ p.description or "" }}</td>
       <td>{{ p.variants | length }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/platforms/{{ p.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Удалить платформу «{{ p.name }}»?')">
+          <button type="submit">Удалить</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="3">Платформ пока нет</td></tr>
+    <tr><td colspan="4">Платформ пока нет</td></tr>
     {% endfor %}
   </tbody>
 </table>

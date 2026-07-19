@@ -45,7 +45,9 @@ def list_platforms(
     user: User = Depends(require_role("viewer")),
 ):
     platforms = platforms_service.list_platforms(db)
-    return templates.TemplateResponse(request, "platforms_list.html", {"platforms": platforms, "user": user})
+    return templates.TemplateResponse(
+        request, "platforms_list.html", {"platforms": platforms, "user": user, "error": None}
+    )
 
 
 @router.get("/platforms/new", response_class=HTMLResponse)
@@ -84,4 +86,31 @@ def platform_detail(
     user: User = Depends(require_role("viewer")),
 ):
     platform = _get_platform_or_404(db, platform_id)
-    return templates.TemplateResponse(request, "platform_detail.html", {"user": user, "platform": platform})
+    return templates.TemplateResponse(
+        request, "platform_detail.html", {"user": user, "platform": platform, "error": None}
+    )
+
+
+@router.post("/platforms/{platform_id}/delete", response_class=HTMLResponse)
+def delete_platform(
+    request: Request,
+    platform_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    platform = _get_platform_or_404(db, platform_id)
+    try:
+        platforms_service.delete_platform(db, platform)
+    except platforms_service.PlatformInUseError:
+        platforms = platforms_service.list_platforms(db)
+        return templates.TemplateResponse(
+            request,
+            "platforms_list.html",
+            {
+                "user": user,
+                "platforms": platforms,
+                "error": f"Нельзя удалить платформу «{platform.name}» — у неё есть исполнения, удалите их сначала",
+            },
+            status_code=409,
+        )
+    return RedirectResponse(url="/platforms", status_code=303)

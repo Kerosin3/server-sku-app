@@ -3,6 +3,7 @@
 {% block content %}
 <h1>{{ platform.name }}</h1>
 {% if platform.description %}<p>{{ platform.description }}</p>{% endif %}
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
 
 <h2>Исполнения</h2>
 
@@ -12,7 +13,7 @@
 
 <table>
   <thead>
-    <tr><th>Название</th><th>Описание</th><th>Элементов</th></tr>
+    <tr><th>Название</th><th>Описание</th><th>Элементов</th><th></th></tr>
   </thead>
   <tbody>
     {% for v in platform.variants %}
@@ -20,12 +21,27 @@
       <td><a href="/variants/{{ v.id }}">{{ v.name }}</a></td>
       <td>{{ v.description or "" }}</td>
       <td>{{ v.slots | length }}</td>
+      <td>
+        {% if user.role in ('admin', 'engineer') %}
+        <form method="post" action="/variants/{{ v.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Удалить исполнение «{{ v.name }}»?')">
+          <button type="submit">Удалить</button>
+        </form>
+        {% endif %}
+      </td>
     </tr>
     {% else %}
-    <tr><td colspan="3">Исполнений пока нет</td></tr>
+    <tr><td colspan="4">Исполнений пока нет</td></tr>
     {% endfor %}
   </tbody>
 </table>
+
+{% if user.role in ('admin', 'engineer') %}
+<form method="post" action="/platforms/{{ platform.id }}/delete"
+      onsubmit="return confirm('Удалить платформу «{{ platform.name }}»?')">
+  <button type="submit">Удалить платформу</button>
+</form>
+{% endif %}
 
 <p><a href="/platforms">← К списку платформ</a></p>
 {% endblock %}

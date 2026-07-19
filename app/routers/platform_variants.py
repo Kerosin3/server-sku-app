@@ -174,3 +174,30 @@ def add_mac_requirement(
             status_code=409,
         )
     return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
+@router.post("/variants/{variant_id}/delete", response_class=HTMLResponse)
+def delete_variant(
+    request: Request,
+    variant_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    platform = variant.platform
+    try:
+        variants_service.delete_variant(db, variant)
+    except variants_service.VariantInUseError:
+        variant = _get_variant_or_404(db, variant_id)
+        return templates.TemplateResponse(
+            request,
+            "variant_detail.html",
+            _variant_detail_context(
+                db,
+                variant,
+                user,
+                error="Нельзя удалить исполнение — есть изделия или используемые где-то ещё элементы каталога",
+            ),
+            status_code=409,
+        )
+    return RedirectResponse(url=f"/platforms/{platform.id}", status_code=303)

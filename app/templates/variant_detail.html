@@ -155,5 +155,12 @@
   </tbody>
 </table>
 
+{% if user.role in ('admin', 'engineer') %}
+<form method="post" action="/variants/{{ variant.id }}/delete"
+      onsubmit="return confirm('Удалить исполнение «{{ variant.name }}»?')">
+  <button type="submit">Удалить исполнение</button>
+</form>
+{% endif %}
+
 <p><a href="/platforms/{{ variant.platform.id }}">← К платформе «{{ variant.platform.name }}»</a></p>
 {% endblock %}

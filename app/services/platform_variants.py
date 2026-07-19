@@ -10,9 +10,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    FirmwareRecord,
     FirmwareType,
     PartCategory,
+    PartType,
     Platform,
+    PlatformItem,
     PlatformVariant,
     PlatformVariantFirmwareRequirement,
     PlatformVariantMacRequirement,
@@ -41,6 +44,10 @@ class FirmwareRequirementTakenError(Exception):
 
 
 class MacLabelTakenError(Exception):
+    pass
+
+
+class VariantInUseError(Exception):
     pass
 
 
@@ -144,3 +151,66 @@ def add_mac_requirement(
     db.commit()
     db.refresh(requirement)
     return requirement
+
+
+def delete_variant(db: Session, variant: PlatformVariant) -> None:
+    """
+    Blocked if the variant has any assembled platform_items — those are
+    physical inventory and must never be silently deleted. The variant's
+    own BOM definition (slots, firmware/MAC requirements, and any
+    part_categories/firmware_types scoped only to this variant) is
+    reference data, not inventory, so it cascades — unless a scoped
+    category/firmware_type is itself still in use elsewhere (part_types,
+    firmware_records), in which case deletion is blocked too.
+    """
+    if db.scalar(select(PlatformItem.id).where(PlatformItem.platform_variant_id == variant.id)) is not None:
+        raise VariantInUseError(variant.id)
+
+    try:
+        db.query(PlatformVariantSlot).filter(PlatformVariantSlot.platform_variant_id == variant.id).delete()
+        db.query(PlatformVariantFirmwareRequirement).filter(
+            PlatformVariantFirmwareRequirement.platform_variant_id == variant.id
+        ).delete()
+        db.query(PlatformVariantMacRequirement).filter(
+            PlatformVariantMacRequirement.platform_variant_id == variant.id
+        ).delete()
+        db.flush()
+
+        for category in list(
+            db.scalars(select(PartCategory).where(PartCategory.platform_variant_id == variant.id))
+        ):
+            still_in_use = (
+                db.scalar(select(PartType.id).where(PartType.category_id == category.id)) is not None
+                or db.scalar(
+                    select(PlatformVariantSlot.id).where(PlatformVariantSlot.category_id == category.id)
+                )
+                is not None
+            )
+            if still_in_use:
+                raise VariantInUseError(variant.id)
+            db.delete(category)
+
+        for firmware_type in list(
+            db.scalars(select(FirmwareType).where(FirmwareType.platform_variant_id == variant.id))
+        ):
+            still_in_use = (
+                db.scalar(
+                    select(FirmwareRecord.id).where(FirmwareRecord.firmware_type_id == firmware_type.id)
+                )
+                is not None
+                or db.scalar(
+                    select(PlatformVariantFirmwareRequirement.id).where(
+                        PlatformVariantFirmwareRequirement.firmware_type_id == firmware_type.id
+                    )
+                )
+                is not None
+            )
+            if still_in_use:
+                raise VariantInUseError(variant.id)
+            db.delete(firmware_type)
+
+        db.delete(variant)
+        db.commit()
+    except VariantInUseError:
+        db.rollback()
+        raise
