@@ -35,3 +35,6 @@ class PlatformItem(Base):
     events: Mapped[list["PlatformEvent"]] = relationship(
         back_populates="platform_item", order_by="PlatformEvent.occurred_at"
     )
+    files: Mapped[list["Attachment"]] = relationship(
+        back_populates="platform_item", order_by="Attachment.uploaded_at.desc()"
+    )

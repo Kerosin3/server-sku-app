@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    Attachment,
     FirmwareRecord,
     FirmwareType,
     PartCategory,
@@ -21,6 +22,7 @@ from app.models import (
     PlatformVariantMacRequirement,
     PlatformVariantSlot,
 )
+from app.services import attachments as attachments_service
 
 
 class VariantNameTakenError(Exception):
@@ -62,6 +64,7 @@ def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
                 PlatformVariantFirmwareRequirement.firmware_type
             ),
             selectinload(PlatformVariant.mac_requirements),
+            selectinload(PlatformVariant.files).selectinload(Attachment.uploaded_by),
         )
         .where(PlatformVariant.id == variant_id)
     )
@@ -209,8 +212,18 @@ def delete_variant(db: Session, variant: PlatformVariant) -> None:
                 raise VariantInUseError(variant.id)
             db.delete(firmware_type)
 
+        # Collect disk paths before deleting the rows — unlinked only
+        # after the transaction actually commits, so a rollback above
+        # (VariantInUseError) never leaves an orphaned DB row pointing
+        # at an already-deleted file.
+        file_paths = [attachments_service.file_path(f) for f in variant.files]
+        db.query(Attachment).filter(Attachment.platform_variant_id == variant.id).delete()
+
         db.delete(variant)
         db.commit()
     except VariantInUseError:
         db.rollback()
         raise
+
+    for path in file_paths:
+        path.unlink(missing_ok=True)

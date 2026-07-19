@@ -1,14 +1,16 @@
 import json
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user, require_role
+from app.config import settings
 from app.db import get_db
 from app.i18n import PLATFORM_EVENT_TYPES
-from app.models import PlatformItem, PlatformVariant, User
+from app.models import Attachment, PlatformItem, PlatformVariant, User
+from app.services import attachments as attachments_service
 from app.services import export as export_service
 from app.services import firmware_records as firmware_records_service
 from app.services import mac_addresses as mac_service
@@ -32,6 +34,13 @@ def _get_item_or_404(db: Session, item_id: int) -> PlatformItem:
     if item is None:
         raise HTTPException(status_code=404, detail="Platform item not found")
     return item
+
+
+def _get_item_file_or_404(db: Session, item: PlatformItem, file_id: int) -> Attachment:
+    attachment = attachments_service.get_file(db, file_id, platform_item_id=item.id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return attachment
 
 
 def _detail_context(item: PlatformItem, user: User, error: str | None = None) -> dict:
@@ -178,6 +187,63 @@ def export_item(
             )
         },
     )
+
+
+@router.post("/items/{item_id}/files", response_class=HTMLResponse)
+def upload_item_file(
+    request: Request,
+    item_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    try:
+        attachments_service.save_file(db, actor=user, platform_item_id=item.id, upload=file)
+    except attachments_service.EmptyFileError:
+        item = _get_item_or_404(db, item_id)
+        return templates.TemplateResponse(
+            request, "item_detail.html", _detail_context(item, user, error="Файл пустой"), status_code=400
+        )
+    except attachments_service.FileTooLargeError:
+        item = _get_item_or_404(db, item_id)
+        limit_mb = settings.max_upload_size_bytes // (1024 * 1024)
+        return templates.TemplateResponse(
+            request,
+            "item_detail.html",
+            _detail_context(item, user, error=f"Файл слишком большой — лимит {limit_mb} МБ"),
+            status_code=400,
+        )
+    return RedirectResponse(url=f"/items/{item_id}", status_code=303)
+
+
+@router.get("/items/{item_id}/files/{file_id}")
+def download_item_file(
+    item_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    attachment = _get_item_file_or_404(db, item, file_id)
+    return FileResponse(
+        path=attachments_service.file_path(attachment),
+        media_type=attachment.content_type or "application/octet-stream",
+        headers={"Content-Disposition": attachments_service.content_disposition(attachment.original_filename)},
+    )
+
+
+@router.post("/items/{item_id}/files/{file_id}/delete", response_class=HTMLResponse)
+def delete_item_file(
+    item_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    item = _get_item_or_404(db, item_id)
+    attachment = _get_item_file_or_404(db, item, file_id)
+    attachments_service.delete_file(db, attachment)
+    return RedirectResponse(url=f"/items/{item_id}", status_code=303)
 
 
 @router.get("/items/{item_id}/stages", response_class=HTMLResponse)

@@ -47,7 +47,16 @@ pytest
 docker compose exec db pg_dump -U tracker server_tracker > backups/$(date +%F).sql
 ```
 
-Вынесите эту команду в cron на хосте и храните копии вне контейнера/сервера.
+Файлы, загруженные к исполнениям (`variant_uploads` volume — архивы
+тестов и т.п.), в дампе БД не участвуют и бэкапятся отдельно:
+
+```bash
+docker run --rm -v server-tracker_variant_uploads:/data -v "$(pwd)/backups:/backup" \
+  alpine tar czf /backup/variant_uploads-$(date +%F).tar.gz -C /data .
+```
+
+Вынесите обе команды в cron на хосте и храните копии вне контейнера/сервера.
+См. также AGENTS.md → «Где физически хранятся данные».
 
 ## Текущий статус
 

@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models import (
+    Attachment,
     MacAddress,
     PartType,
     PartUnit,
@@ -21,6 +22,7 @@ from app.models import (
     PlatformVariantSlot,
     User,
 )
+from app.services import attachments as attachments_service
 from app.services import audit
 
 
@@ -92,6 +94,7 @@ def get_item(db: Session, item_id: int) -> PlatformItem | None:
             selectinload(PlatformItem.components)
             .selectinload(PlatformComponent.platform_variant_slot)
             .selectinload(PlatformVariantSlot.category),
+            selectinload(PlatformItem.files).selectinload(Attachment.uploaded_by),
         )
         .where(PlatformItem.id == item_id)
     )
@@ -215,11 +218,20 @@ def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
         if component.removed_at is None:
             component.part_unit.status = "in_stock"
 
+    # Collect disk paths before deleting the rows — unlinked only after
+    # the transaction actually commits (mirrors delete_variant in
+    # app/services/platform_variants.py).
+    file_paths = [attachments_service.file_path(f) for f in item.files]
+    db.query(Attachment).filter(Attachment.platform_item_id == item.id).delete()
+
     db.query(MacAddress).filter(MacAddress.platform_item_id == item.id).delete()
     db.query(PlatformEvent).filter(PlatformEvent.platform_item_id == item.id).delete()
     db.query(PlatformComponent).filter(PlatformComponent.platform_item_id == item.id).delete()
     db.delete(item)
     db.commit()
+
+    for path in file_paths:
+        path.unlink(missing_ok=True)
 
 
 def install_component(

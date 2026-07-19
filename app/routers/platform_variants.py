@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth import require_role
+from app.config import settings
 from app.db import get_db
-from app.models import Platform, PlatformVariant, User
+from app.models import Attachment, Platform, PlatformVariant, User
+from app.services import attachments as attachments_service
 from app.services import firmware_types as firmware_types_service
 from app.services import part_categories as categories_service
 from app.services import platforms as platforms_service
@@ -26,6 +28,13 @@ def _get_variant_or_404(db: Session, variant_id: int) -> PlatformVariant:
     if variant is None:
         raise HTTPException(status_code=404, detail="Platform variant not found")
     return variant
+
+
+def _get_variant_file_or_404(db: Session, variant: PlatformVariant, file_id: int) -> Attachment:
+    attachment = attachments_service.get_file(db, file_id, platform_variant_id=variant.id)
+    if attachment is None:
+        raise HTTPException(status_code=404, detail="File not found")
+    return attachment
 
 
 def _variant_detail_context(db: Session, variant: PlatformVariant, user: User, error: str | None = None) -> dict:
@@ -173,6 +182,66 @@ def add_mac_requirement(
             _variant_detail_context(db, variant, user, error="Такая метка MAC уже есть в этом исполнении"),
             status_code=409,
         )
+    return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
+@router.post("/variants/{variant_id}/files", response_class=HTMLResponse)
+def upload_variant_file(
+    request: Request,
+    variant_id: int,
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    try:
+        attachments_service.save_file(db, actor=user, platform_variant_id=variant.id, upload=file)
+    except attachments_service.EmptyFileError:
+        variant = _get_variant_or_404(db, variant_id)
+        return templates.TemplateResponse(
+            request,
+            "variant_detail.html",
+            _variant_detail_context(db, variant, user, error="Файл пустой"),
+            status_code=400,
+        )
+    except attachments_service.FileTooLargeError:
+        variant = _get_variant_or_404(db, variant_id)
+        limit_mb = settings.max_upload_size_bytes // (1024 * 1024)
+        return templates.TemplateResponse(
+            request,
+            "variant_detail.html",
+            _variant_detail_context(db, variant, user, error=f"Файл слишком большой — лимит {limit_mb} МБ"),
+            status_code=400,
+        )
+    return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
+
+
+@router.get("/variants/{variant_id}/files/{file_id}")
+def download_variant_file(
+    variant_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    attachment = _get_variant_file_or_404(db, variant, file_id)
+    return FileResponse(
+        path=attachments_service.file_path(attachment),
+        media_type=attachment.content_type or "application/octet-stream",
+        headers={"Content-Disposition": attachments_service.content_disposition(attachment.original_filename)},
+    )
+
+
+@router.post("/variants/{variant_id}/files/{file_id}/delete", response_class=HTMLResponse)
+def delete_variant_file(
+    variant_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role("engineer")),
+):
+    variant = _get_variant_or_404(db, variant_id)
+    attachment = _get_variant_file_or_404(db, variant, file_id)
+    attachments_service.delete_file(db, attachment)
     return RedirectResponse(url=f"/variants/{variant_id}", status_code=303)
 
 

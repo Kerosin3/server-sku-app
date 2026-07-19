@@ -38,6 +38,9 @@ class PlatformVariant(Base):
     mac_requirements: Mapped[list["PlatformVariantMacRequirement"]] = relationship(
         back_populates="platform_variant", order_by="PlatformVariantMacRequirement.label"
     )
+    files: Mapped[list["Attachment"]] = relationship(
+        back_populates="platform_variant", order_by="Attachment.uploaded_at.desc()"
+    )
 
 
 class PlatformVariantSlot(Base):

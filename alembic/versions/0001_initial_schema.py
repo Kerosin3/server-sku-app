@@ -294,6 +294,26 @@ def upgrade() -> None:
         "ix_login_attempts_username_created_at", "login_attempts", ["username", "created_at"]
     )
 
+    op.create_table(
+        "attachments",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("platform_variant_id", sa.Integer(), sa.ForeignKey("platform_variants.id"), nullable=True),
+        sa.Column("platform_item_id", sa.Integer(), sa.ForeignKey("platform_items.id"), nullable=True),
+        sa.Column("original_filename", sa.String(255), nullable=False),
+        sa.Column("stored_filename", sa.String(64), nullable=False),
+        sa.Column("content_type", sa.String(128), nullable=True),
+        sa.Column("size_bytes", sa.BigInteger(), nullable=False),
+        sa.Column("uploaded_by_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
+        sa.Column("uploaded_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.CheckConstraint(
+            "num_nonnulls(platform_variant_id, platform_item_id) = 1",
+            name="ck_attachment_exactly_one_owner",
+        ),
+    )
+    op.create_index("ix_attachments_platform_variant_id", "attachments", ["platform_variant_id"])
+    op.create_index("ix_attachments_platform_item_id", "attachments", ["platform_item_id"])
+    op.create_index("ix_attachments_stored_filename", "attachments", ["stored_filename"], unique=True)
+
     # Starter set of part categories — fully editable/extensible via the
     # /part-categories UI afterward, this is just a reasonable default so
     # the constructor isn't empty on first use. All global (NULL
@@ -344,6 +364,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index("ix_attachments_stored_filename", table_name="attachments")
+    op.drop_index("ix_attachments_platform_item_id", table_name="attachments")
+    op.drop_index("ix_attachments_platform_variant_id", table_name="attachments")
+    op.drop_table("attachments")
     op.drop_index("ix_login_attempts_username_created_at", table_name="login_attempts")
     op.drop_table("login_attempts")
     op.drop_table("audit_log")

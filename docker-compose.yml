@@ -27,6 +27,7 @@ services:
       ENV: production
     volumes:
       - ./app:/app/app
+      - variant_uploads:/data/uploads
     expose:
       - "8000"
 
@@ -47,3 +48,4 @@ volumes:
   pgdata:
   caddy_data:
   caddy_config:
+  variant_uploads:
