@@ -160,8 +160,11 @@ form button[type="submit"] { margin-top: 0.3rem; }
 
 .columns { display: flex; gap: 2rem; align-items: flex-start; }
 .columns > div { flex: 1; min-width: 0; }
+.columns > .col-form { flex: 0 1 340px; }
+.columns > .col-wide { flex: 1.4; }
 @media (max-width: 800px) {
   .columns { flex-direction: column; }
+  .columns > .col-form { flex-basis: auto; }
 }
 
 .comment-hint { cursor: help; margin-left: 0.3rem; }

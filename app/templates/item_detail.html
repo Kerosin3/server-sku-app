@@ -38,6 +38,26 @@
 {% endif %}
 
 <div class="columns">
+  {% if user.role in ('admin', 'engineer') %}
+  <div class="col-form">
+    <h2>Установить компонент</h2>
+    <form method="post" action="/items/{{ item.id }}/components">
+      <label>Обозначение
+        <select name="platform_variant_slot_id" required>
+          <option value="" disabled selected>— выберите обозначение —</option>
+          {% for s in item.platform_variant.slots %}
+          <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category.name }})</option>
+          {% endfor %}
+        </select>
+      </label><br>
+      <label>Серийный номер компонента <input type="text" name="serial_number" placeholder="оставьте пустым, если нет — тогда нужен комментарий"></label><br>
+      <label>Артикул (партномер) <input type="text" name="article" placeholder="напр. Xeon Gold 6338"></label><br>
+      <label>Комментарий<br><textarea name="comment" rows="3" cols="60" maxlength="1024"></textarea></label><br>
+      <button type="submit">Установить</button>
+    </form>
+  </div>
+  {% endif %}
+
   <div>
     <h2>Комплектность</h2>
     <table>
@@ -59,7 +79,7 @@
     </table>
   </div>
 
-  <div>
+  <div class="col-wide">
     <h2>Установленные компоненты</h2>
     <table>
       <thead>
@@ -91,24 +111,6 @@
     </table>
   </div>
 </div>
-
-{% if user.role in ('admin', 'engineer') %}
-<h2>Установить компонент</h2>
-<form method="post" action="/items/{{ item.id }}/components">
-  <label>Обозначение
-    <select name="platform_variant_slot_id" required>
-      <option value="" disabled selected>— выберите обозначение —</option>
-      {% for s in item.platform_variant.slots %}
-      <option value="{{ s.id }}">{{ s.slot_name }} ({{ s.category.name }})</option>
-      {% endfor %}
-    </select>
-  </label><br>
-  <label>Серийный номер компонента <input type="text" name="serial_number" placeholder="оставьте пустым, если нет — тогда нужен комментарий"></label><br>
-  <label>Артикул (партномер) <input type="text" name="article" placeholder="напр. Xeon Gold 6338"></label><br>
-  <label>Комментарий<br><textarea name="comment" rows="3" cols="60" maxlength="1024"></textarea></label><br>
-  <button type="submit">Установить</button>
-</form>
-{% endif %}
 
 {% if user.role in ('admin', 'engineer') and item.status != 'shipped' %}
 <form method="post" action="/items/{{ item.id }}/delete"
