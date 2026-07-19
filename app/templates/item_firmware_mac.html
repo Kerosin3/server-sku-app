@@ -19,11 +19,11 @@
     <tr>
       <td>{{ row.requirement.firmware_type.name }}</td>
       <td>
-        {% if row.primary %}{{ row.primary.version }} ({{ row.primary.recorded_at.strftime('%Y-%m-%d') }}){% else %}не указано{% endif %}
+        {% if row.primary %}{{ row.primary.version }}{% else %}не указано{% endif %}
       </td>
       <td>
         {% if not row.requirement.track_backup %}—
-        {% elif row.backup %}{{ row.backup.version }} ({{ row.backup.recorded_at.strftime('%Y-%m-%d') }})
+        {% elif row.backup %}{{ row.backup.version }}
         {% else %}не указано{% endif %}
       </td>
     </tr>
