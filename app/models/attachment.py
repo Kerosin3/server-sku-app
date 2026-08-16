@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, String, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -32,6 +32,10 @@ class Attachment(Base):
             "num_nonnulls(platform_variant_id, platform_item_id) = 1",
             name="ck_attachment_exactly_one_owner",
         ),
+        # A unique *index*, not unique=True on the column (which would be
+        # a unique constraint) — that's what migration 0001 creates, and
+        # the model must match the real schema for `alembic check`.
+        Index("ix_attachments_stored_filename", "stored_filename", unique=True),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -42,7 +46,7 @@ class Attachment(Base):
         ForeignKey("platform_items.id"), nullable=True, index=True
     )
     original_filename: Mapped[str] = mapped_column(String(255))
-    stored_filename: Mapped[str] = mapped_column(String(64), unique=True)
+    stored_filename: Mapped[str] = mapped_column(String(64))
     content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)

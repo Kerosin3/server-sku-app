@@ -50,6 +50,28 @@ done
 echo "[deploy] applying migrations..."
 docker compose exec -T app alembic upgrade head
 
+# Guard against the failure mode this project is most exposed to: models
+# changed, but no new Alembic revision was written for the change. Then
+# `upgrade head` above is a silent no-op, and the app starts against a
+# schema that's missing the column it expects — a 500 on first use
+# instead of an error here. `alembic check` compares the live schema to
+# the models and reports the difference.
+#
+# Deliberately not fatal: containers are already up at this point, and
+# aborting wouldn't undo that. A loud warning that the operator has to
+# read is the useful behaviour.
+echo "[deploy] checking that the DB schema matches the models..."
+if ! docker compose exec -T app alembic check >/tmp/alembic-check.$$ 2>&1; then
+  echo
+  echo "[deploy] !!! WARNING: the database schema does NOT match the models."
+  echo "[deploy] !!! Most likely a model was changed without a new Alembic revision."
+  echo "[deploy] !!! The app is running, but anything touching the changed table may fail."
+  echo "[deploy] !!! Details:"
+  grep -Ev "^INFO  \[alembic\.(ddl|runtime)" /tmp/alembic-check.$$ | sed 's/^/[deploy]     /'
+  echo
+fi
+rm -f /tmp/alembic-check.$$
+
 echo
 echo "[deploy] done."
 echo "[deploy] first run only: open the app and go to /setup to create the first admin"
