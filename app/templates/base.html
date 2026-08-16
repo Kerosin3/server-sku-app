@@ -3,7 +3,13 @@
 <head>
   <meta charset="utf-8">
   <title>{% block title %}Server SKU Tracker{% endblock %}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/2.0.3/htmx.min.js"></script>
+  {# htmx 2.0.3, vendored into app/static/js/ — not loaded from a CDN.
+     The app is deployed on an internal network that may have no
+     internet access at all (see AGENTS.md "Конвенции кода"), and a CDN
+     script would simply never load there. To update: download
+     https://unpkg.com/htmx.org@<version>/dist/htmx.min.js over this file
+     and bump the version in this comment. #}
+  <script src="/static/js/htmx.min.js"></script>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
