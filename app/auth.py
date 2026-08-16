@@ -35,10 +35,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
 def require_role(min_role: str):
     """Usage: Depends(require_role('engineer'))
 
-    TODO(agent): add a custom exception handler in app/main.py that catches
-    401/403 HTTPException and renders a Russian-language HTML error page
-    (or redirects to /login) instead of returning raw JSON — the web UI
-    must stay Russian end-to-end, this dependency layer stays English.
+    Raises a plain HTTPException with an English detail; turning that
+    into a Russian page (or a redirect to /login for 401) is the job of
+    the exception handler in app/main.py, so this dependency layer
+    stays English per the language convention.
     """
 
     def dependency(user: User = Depends(get_current_user)) -> User:

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Ошибка {{ status_code }} — Server SKU Tracker{% endblock %}
+{% block content %}
+{# Shown for any HTTPException the routers raise (403/404/409/...) — see
+   the handler in app/main.py. The message is picked there by status
+   code; exc.detail is deliberately not shown, it's English technical
+   text and the UI is Russian end-to-end. #}
+<h1>Ошибка {{ status_code }}</h1>
+<p>{{ message }}</p>
+<p><a href="/">← На главную</a></p>
+{% endblock %}
