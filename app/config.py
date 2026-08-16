@@ -10,5 +10,12 @@ class Settings(BaseSettings):
     upload_dir: str = "/data/uploads"
     max_upload_size_bytes: int = 250 * 1024 * 1024  # 250 MB, per user request
 
+    # JSON API for machine consumers (app/routers/api_v1.py). Disabled
+    # while api_token is empty — no token, no API, so a deployment that
+    # doesn't want one is safe by default. See app/api_auth.py for why
+    # this is an interim mechanism and what replaces it.
+    api_token: str = ""
+    api_service_username: str = "api"  # existing user the API acts as; its role decides what the API may do
+
 
 settings = Settings()
