@@ -1,0 +1,10 @@
+# Test-only dependencies. Deliberately NOT in requirements.txt: the
+# production image shouldn't carry a test runner, and AGENTS.md asks not
+# to add dependencies to the deployed app without need.
+#
+# Installed on the fly by scripts/test-api.sh inside a throwaway
+# container, so the built image stays unchanged.
+-r requirements.txt
+
+pytest==8.3.*
+httpx==0.27.*  # required by fastapi.testclient.TestClient
