@@ -268,4 +268,167 @@ def record_item_event(item_id: int, event_type: str, notes: str = "", dry_run: b
     return format_result(action, call_api("POST", f"/items/{item_id}/events", body=body))
 
 
-TOOLS = [search_inventory, get_item, record_item_event]
+class ListItemsInput(BaseModel):
+    status: str = Field(
+        default="",
+        description=(
+            "Filter by current stage: assembly, assembled, disassembled, testing, shipped. "
+            "Empty string means every stage."
+        ),
+    )
+    variant_id: int = Field(
+        default=0,
+        description="Restrict to one configuration; 0 means all of them. Get ids from list_platforms.",
+    )
+    limit: int = Field(default=20, ge=1, le=100)
+
+
+@tool("list_items", args_schema=ListItemsInput)
+def list_items(status: str = "", variant_id: int = 0, limit: int = 20) -> str:
+    """Answer questions about a group of items rather than a single one.
+
+    "What is still in testing", "how many of this configuration have
+    shipped", "show me everything being assembled". For one item you
+    already have an id for, get_item returns far more.
+
+    Data holds `total` — the full count ignoring the limit — alongside
+    the page of items, so you can say how many there are even when you
+    only listed some.
+    """
+    params: dict = {"limit": limit}
+    described = []
+    if status:
+        params["status"] = status
+        described.append(f"этап «{status}»")
+    if variant_id:
+        params["variant_id"] = variant_id
+        described.append(f"исполнение id={variant_id}")
+    action = "Список изделий" + (": " + ", ".join(described) if described else " (все)")
+    return format_result(action, call_api("GET", "/items", params=params))
+
+
+class PartHistoryInput(BaseModel):
+    serial_number: str = Field(description="Exact serial number of the part.")
+
+
+@tool("get_part_history", args_schema=PartHistoryInput)
+def get_part_history(serial_number: str) -> str:
+    """Every item a part has ever been installed in, plus its firmware.
+
+    This is the view for investigating a failure or an RMA: where the
+    part is now, where it was before, and when it moved. search_inventory
+    only says where it is at the moment.
+    """
+    return format_result(
+        f"История детали {serial_number}",
+        call_api("GET", f"/part-units/{serial_number}"),
+    )
+
+
+class NoInput(BaseModel):
+    pass
+
+
+@tool("list_platforms", args_schema=NoInput)
+def list_platforms() -> str:
+    """The catalog of platforms and the configurations under each.
+
+    Use it to turn a name a person said ("четырёхюнитовый с восемью GPU")
+    into the numeric variant_id the other tools take. Also the way to
+    answer "what do we even make".
+    """
+    return format_result("Каталог платформ и исполнений", call_api("GET", "/platforms"))
+
+
+class GetVariantInput(BaseModel):
+    variant_id: int = Field(description="Numeric id of the configuration, from list_platforms.")
+
+
+@tool("get_variant", args_schema=GetVariantInput)
+def get_variant(variant_id: int) -> str:
+    """What a configuration requires — the standard items are checked against.
+
+    Which parts and how many, which firmware must be recorded, which MAC
+    addresses are expected. This is where valid slot ids come from when
+    installing a component, and it answers "what is supposed to be in
+    this machine" as opposed to "what actually is".
+    """
+    return format_result(
+        f"Состав исполнения id={variant_id}",
+        call_api("GET", f"/variants/{variant_id}"),
+    )
+
+
+class InstallComponentInput(BaseModel):
+    item_id: int = Field(description="Which item the part goes into.")
+    slot_id: int = Field(
+        description="Which BOM line of that item's configuration this fills; from get_item -> checklist."
+    )
+    serial_number: str = Field(
+        default="",
+        description="Serial of the physical part. Leave empty only for parts that genuinely have none.",
+    )
+    article: str = Field(
+        default="",
+        description="Part number. Required when this serial is not on record yet; otherwise leave empty.",
+    )
+    comment: str = Field(
+        default="",
+        description="Required instead of a serial number when the part has none — this identifies it.",
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="True checks the install and writes nothing. Pass False only after a dry run and a confirmation.",
+    )
+
+
+@tool("install_component", args_schema=InstallComponentInput)
+def install_component(
+    item_id: int,
+    slot_id: int,
+    serial_number: str = "",
+    article: str = "",
+    comment: str = "",
+    dry_run: bool = True,
+) -> str:
+    """Install a part into one BOM line of an item. Defaults to a dry run.
+
+    Refused while the item is marked assembled: its component list is
+    locked until a 'disassembled' event reopens it. Also refused if the
+    part is currently installed somewhere else — find it with
+    search_inventory and remove it there first.
+
+    Same two steps as record_item_event: check, show the person, then
+    call again with dry_run=false.
+    """
+    body: dict = {"platform_variant_slot_id": slot_id, "dry_run": dry_run}
+    if serial_number:
+        body["serial_number"] = serial_number
+    if article:
+        body["article"] = article
+    if comment:
+        body["comment"] = comment
+
+    what = serial_number or comment or "деталь без серийника"
+    action = f"Установка «{what}» в элемент id={slot_id} изделия id={item_id}"
+    action += " — проверка без записи" if dry_run else " — запись"
+    return format_result(action, call_api("POST", f"/items/{item_id}/components", body=body))
+
+
+# Eight tools out of the API's twenty-seven operations, and the gap is
+# the point. A model picks correctly from a short, clearly separated
+# list; mapping every endpoint to a tool would make several of them
+# near-synonyms and the choice unreliable. Firmware and MAC registration
+# are the obvious next candidates — they belong to the same build flow —
+# but they are narrower than these, so they wait until something actually
+# needs them.
+TOOLS = [
+    search_inventory,
+    get_item,
+    list_items,
+    get_part_history,
+    list_platforms,
+    get_variant,
+    record_item_event,
+    install_component,
+]
