@@ -1,13 +1,14 @@
 """
 Business logic for firmware_types — user-editable catalog, same
 global-vs-variant-scoped pattern as part_categories (see
-app/services/part_categories.py). No audit_log entries: reference/
-catalog data, not inventory state.
+app/services/part_categories.py), including auditing both creation and
+deletion, for the same reasons.
 """
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import FirmwareRecord, FirmwareType, PlatformVariantFirmwareRequirement
+from app.models import FirmwareRecord, FirmwareType, PlatformVariantFirmwareRequirement, User
+from app.services import audit
 
 
 class FirmwareTypeNameTakenError(Exception):
@@ -36,7 +37,7 @@ def list_available_for_variant(db: Session, platform_variant_id: int) -> list[Fi
 
 
 def create_firmware_type(
-    db: Session, *, name: str, platform_variant_id: int | None = None
+    db: Session, *, actor: User, name: str, platform_variant_id: int | None = None
 ) -> FirmwareType:
     scope_filter = (
         FirmwareType.platform_variant_id.is_(None)
@@ -48,12 +49,22 @@ def create_firmware_type(
 
     firmware_type = FirmwareType(name=name, platform_variant_id=platform_variant_id)
     db.add(firmware_type)
+    db.flush()
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="firmware_type",
+        entity_id=firmware_type.id,
+        action="create",
+        diff={"name": name, "platform_variant_id": platform_variant_id},
+    )
     db.commit()
     db.refresh(firmware_type)
     return firmware_type
 
 
-def delete_firmware_type(db: Session, firmware_type: FirmwareType) -> None:
+def delete_firmware_type(db: Session, *, actor: User, firmware_type: FirmwareType) -> None:
     in_use = db.scalar(
         select(FirmwareRecord.id).where(FirmwareRecord.firmware_type_id == firmware_type.id)
     ) is not None or (
@@ -67,5 +78,13 @@ def delete_firmware_type(db: Session, firmware_type: FirmwareType) -> None:
     if in_use:
         raise FirmwareTypeInUseError(firmware_type.id)
 
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="firmware_type",
+        entity_id=firmware_type.id,
+        action="delete",
+        diff={"name": firmware_type.name},
+    )
     db.delete(firmware_type)
     db.commit()

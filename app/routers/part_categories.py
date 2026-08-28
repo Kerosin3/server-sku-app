@@ -42,7 +42,7 @@ def create_category(
 ):
     try:
         categories_service.create_category(
-            db, name=name, group=group, platform_variant_id=int(platform_variant_id) if platform_variant_id else None
+            db, actor=user, name=name, group=group, platform_variant_id=int(platform_variant_id) if platform_variant_id else None
         )
     except (categories_service.CategoryNameTakenError, categories_service.InvalidGroupError) as exc:
         error = (
@@ -70,7 +70,7 @@ def delete_category(
 ):
     category = _get_category_or_404(db, category_id)
     try:
-        categories_service.delete_category(db, category)
+        categories_service.delete_category(db, actor=user, category=category)
     except categories_service.CategoryInUseError:
         categories = categories_service.list_categories(db)
         return templates.TemplateResponse(

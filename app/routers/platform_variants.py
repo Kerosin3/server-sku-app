@@ -71,7 +71,7 @@ def create_variant(
 ):
     platform = _get_platform_or_404(db, platform_id)
     try:
-        variant = variants_service.create_variant(db, platform=platform, name=name, description=description)
+        variant = variants_service.create_variant(db, actor=user, platform=platform, name=name, description=description)
     except variants_service.VariantNameTakenError:
         return templates.TemplateResponse(
             request,
@@ -110,6 +110,7 @@ def add_slot(
     try:
         variants_service.add_slot(
             db,
+            actor=user,
             variant=variant,
             slot_name=slot_name,
             category_id=category_id,
@@ -144,7 +145,7 @@ def add_firmware_requirement(
     variant = _get_variant_or_404(db, variant_id)
     try:
         variants_service.add_firmware_requirement(
-            db, variant=variant, firmware_type_id=firmware_type_id, track_backup=track_backup
+            db, actor=user, variant=variant, firmware_type_id=firmware_type_id, track_backup=track_backup
         )
     except (variants_service.FirmwareTypeNotFoundError, variants_service.FirmwareRequirementTakenError) as exc:
         error = (
@@ -173,7 +174,7 @@ def add_mac_requirement(
 ):
     variant = _get_variant_or_404(db, variant_id)
     try:
-        variants_service.add_mac_requirement(db, variant=variant, label=label, required=required)
+        variants_service.add_mac_requirement(db, actor=user, variant=variant, label=label, required=required)
     except variants_service.MacLabelTakenError:
         variant = _get_variant_or_404(db, variant_id)
         return templates.TemplateResponse(
@@ -255,7 +256,7 @@ def delete_variant(
     variant = _get_variant_or_404(db, variant_id)
     platform = variant.platform
     try:
-        variants_service.delete_variant(db, variant)
+        variants_service.delete_variant(db, actor=user, variant=variant)
     except variants_service.VariantInUseError:
         variant = _get_variant_or_404(db, variant_id)
         return templates.TemplateResponse(

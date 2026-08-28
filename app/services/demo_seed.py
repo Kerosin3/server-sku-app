@@ -86,16 +86,17 @@ _COMPONENTS = [
 
 def seed_demo_data(db: Session, *, actor: User) -> None:
     platform = platforms_service.create_platform(
-        db, name="DEMO 4U AI Server", description="Демонстрационная платформа — пример для первого запуска"
+        db, actor=actor, name="DEMO 4U AI Server", description="Демонстрационная платформа — пример для первого запуска"
     )
     variant = variants_service.create_variant(
-        db, platform=platform, name="8x GPU Full Config", description="Полная комплектация, 8 GPU, дуал CPU"
+        db, actor=actor, platform=platform, name="8x GPU Full Config", description="Полная комплектация, 8 GPU, дуал CPU"
     )
 
     category_ids = {c.name: c.id for c in db.query(PartCategory).filter(PartCategory.platform_variant_id.is_(None))}
     for slot_name, category_name, quantity, required in _SLOTS:
         variants_service.add_slot(
             db,
+            actor=actor,
             variant=variant,
             slot_name=slot_name,
             category_id=category_ids[category_name],
@@ -107,20 +108,20 @@ def seed_demo_data(db: Session, *, actor: User) -> None:
         f.name: f.id for f in db.query(FirmwareType).filter(FirmwareType.platform_variant_id.is_(None))
     }
     variants_service.add_firmware_requirement(
-        db, variant=variant, firmware_type_id=firmware_type_ids["BIOS"], track_backup=True
+        db, actor=actor, variant=variant, firmware_type_id=firmware_type_ids["BIOS"], track_backup=True
     )
     variants_service.add_firmware_requirement(
-        db, variant=variant, firmware_type_id=firmware_type_ids["BMC"], track_backup=True
+        db, actor=actor, variant=variant, firmware_type_id=firmware_type_ids["BMC"], track_backup=True
     )
     variants_service.add_firmware_requirement(
-        db, variant=variant, firmware_type_id=firmware_type_ids["CPLD"], track_backup=False
+        db, actor=actor, variant=variant, firmware_type_id=firmware_type_ids["CPLD"], track_backup=False
     )
     variants_service.add_firmware_requirement(
-        db, variant=variant, firmware_type_id=firmware_type_ids["Прошивка бэкплейна"], track_backup=False
+        db, actor=actor, variant=variant, firmware_type_id=firmware_type_ids["Прошивка бэкплейна"], track_backup=False
     )
 
-    variants_service.add_mac_requirement(db, variant=variant, label="BMC", required=True)
-    variants_service.add_mac_requirement(db, variant=variant, label="LAN1", required=False)
+    variants_service.add_mac_requirement(db, actor=actor, variant=variant, label="BMC", required=True)
+    variants_service.add_mac_requirement(db, actor=actor, variant=variant, label="LAN1", required=False)
 
     attachments_service.save_file(
         db,

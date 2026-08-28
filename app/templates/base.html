@@ -21,6 +21,7 @@
       <a href="/part-units/unowned">Детали без владельца</a>
       {% if user.role == 'admin' %}
         <a href="/users">Пользователи</a>
+        <a href="/api-tokens">Токены API</a>
       {% endif %}
       <a href="/account/security-question">{{ user.username }} ({{ user.role | label('role') }})</a>
       <form method="post" action="/logout" style="display:inline">

@@ -97,7 +97,7 @@ def create_platform(
     user: User = Depends(require_role("engineer")),
 ):
     try:
-        platform = platforms_service.create_platform(db, name=name, description=description)
+        platform = platforms_service.create_platform(db, actor=user, name=name, description=description)
     except platforms_service.PlatformNameTakenError:
         return templates.TemplateResponse(
             request,
@@ -130,7 +130,7 @@ def delete_platform(
 ):
     platform = _get_platform_or_404(db, platform_id)
     try:
-        platforms_service.delete_platform(db, platform)
+        platforms_service.delete_platform(db, actor=user, platform=platform)
     except platforms_service.PlatformInUseError:
         platforms = platforms_service.list_platforms(db)
         return templates.TemplateResponse(

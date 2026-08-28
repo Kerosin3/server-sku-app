@@ -9,18 +9,22 @@ application against a throwaway database seeded with the demo example
 the app already knows how to create (app/services/demo_seed.py), so
 fidelity is free and there is nothing to keep in sync.
 
+The API token is issued the same way a human would issue one, through
+app/services/api_tokens.py, rather than injected through configuration.
+That keeps the tests honest about how access is actually granted, and it
+means the issuing path itself is exercised on every run.
+
 scripts/test-api.sh owns the database: it creates a scratch one, points
 DATABASE_URL at it, runs the migrations, and drops it afterwards. By the
 time pytest imports the app, DATABASE_URL is already set — which matters,
 because app/db.py binds its engine at import time.
 """
-import os
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
-API_TOKEN = os.environ["API_TOKEN"]
-SERVICE_USERNAME = os.environ.get("API_SERVICE_USERNAME", "api")
+SERVICE_USERNAME = "api"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -46,8 +50,8 @@ def seeded_database():
                 security_answer="test",
             )
         if db.query(User).filter(User.username == SERVICE_USERNAME).first() is None:
-            # No usable password: this account exists to give the API an
-            # identity and a role, not to log in through the web form.
+            # No usable password: this account exists to give API tokens an
+            # identity and a role ceiling, not to log in through the web form.
             db.add(
                 User(
                     username=SERVICE_USERNAME,
@@ -68,16 +72,64 @@ def client() -> TestClient:
 
 
 @pytest.fixture
-def auth() -> dict[str, str]:
-    return {"Authorization": f"Bearer {API_TOKEN}"}
+def issue_token(seeded_database):
+    """
+    Issue a token and revoke it when the test ends, so no test leaves a
+    live one behind for the next. Names are unique per issue because
+    api_tokens holds a partial unique index on the names of live tokens.
+    """
+    from app.db import SessionLocal
+    from app.models import User
+    from app.services import api_tokens as tokens_service
+
+    issued = []
+
+    def issue(role: str = "engineer", username: str = SERVICE_USERNAME) -> str:
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.username == username).one()
+            token, raw_token = tokens_service.create_token(
+                db,
+                actor=None,
+                name=f"contract test {uuid4().hex[:8]}",
+                user=user,
+                role=role,
+            )
+            issued.append(token.id)
+            return raw_token
+        finally:
+            db.close()
+
+    yield issue
+
+    db = SessionLocal()
+    try:
+        from app.models import ApiToken
+
+        for token_id in issued:
+            token = db.get(ApiToken, token_id)
+            if token is not None:
+                tokens_service.revoke_token(db, actor=None, token=token)
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def api_token(issue_token) -> str:
+    return issue_token()
+
+
+@pytest.fixture
+def auth(api_token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {api_token}"}
 
 
 @pytest.fixture
 def service_role():
     """
-    Temporarily change the API service account's role, then put it back.
-    Used to check that a viewer-role token really is read-only and really
-    doesn't see commercial fields.
+    Temporarily change the role of the user API tokens act as, then put
+    it back. Used to check that the user's role caps the token's — a
+    token can never be a way to hold rights its owner has lost.
     """
     from app.db import SessionLocal
     from app.models import User
@@ -93,6 +145,13 @@ def service_role():
 
     yield set_role
     set_role("engineer")
+
+
+@pytest.fixture
+def demo_variant_id(client: TestClient, auth: dict[str, str]) -> int:
+    """The seeded demo configuration — a ready-made BOM to hang test items on."""
+    platforms = client.get("/api/v1/platforms", headers=auth).json()
+    return platforms[0]["variants"][0]["id"]
 
 
 @pytest.fixture

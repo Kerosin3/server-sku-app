@@ -17,9 +17,6 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
 
 TEST_DB="server_tracker_contract_test"
-# Random per run: the tests must never depend on a token that happens to
-# be configured in .env, and this one only ever exists in this process.
-TEST_TOKEN="$(openssl rand -hex 16)"
 
 set -a
 # shellcheck disable=SC1091
@@ -50,9 +47,8 @@ echo "[test] running migrations and contract tests..."
 # test runner (see requirements-dev.txt).
 docker compose run --rm \
   -e DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${TEST_DB}" \
-  -e API_TOKEN="$TEST_TOKEN" \
-  -e API_SERVICE_USERNAME="api" \
   -v "$PROJECT_DIR/tests:/app/tests" \
+  -v "$PROJECT_DIR/alembic:/app/alembic" \
   -v "$PROJECT_DIR/requirements-dev.txt:/app/requirements-dev.txt" \
   -v "$PROJECT_DIR/AGENTS.md:/app/AGENTS.md:ro" \
   app sh -c "pip install -q -r requirements-dev.txt && alembic upgrade head >/dev/null 2>&1 && pytest tests $*"

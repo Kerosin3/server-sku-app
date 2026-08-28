@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Токены API — Server SKU Tracker{% endblock %}
+{% block content %}
+<h1>Токены API</h1>
+
+{% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+
+{% if new_token %}
+{# The one and only time the token is readable. Only its hash is stored,
+   so reloading this page will not bring it back. #}
+<div style="border:2px solid var(--color-primary); padding:1rem; margin-bottom:1.5rem">
+  <p><strong>Токен создан. Скопируйте его сейчас — второй раз он не покажется.</strong></p>
+  <p><code style="user-select:all; word-break:break-all; font-size:1.05rem">{{ new_token }}</code></p>
+  <p style="margin-bottom:0">
+    Хранится только хеш, восстановить строку нельзя. Потеряли — отзовите
+    этот токен и выпустите новый.
+  </p>
+</div>
+{% endif %}
+
+<p>
+  Токен — это доступ к JSON API (<code>/api/v1</code>) для скриптов и
+  LLM-агентов. Передаётся заголовком
+  <code>Authorization: Bearer &lt;токен&gt;</code>.
+</p>
+
+<div class="columns">
+  <div class="col-form">
+    <h2>Новый токен</h2>
+    <form method="post" action="/api-tokens">
+      <label>Название
+        <input type="text" name="name" required placeholder="Например: агент LangChain">
+      </label><br>
+      <label>Действует от имени
+        <select name="username">
+          {% for u in users %}
+          <option value="{{ u.username }}">{{ u.username }} ({{ u.role | label('role') }})</option>
+          {% endfor %}
+        </select>
+      </label><br>
+      <label>Роль токена
+        <select name="role">
+          {% for r in roles %}
+          <option value="{{ r }}">{{ r | label('role') }}</option>
+          {% endfor %}
+        </select>
+      </label><br>
+      <button type="submit">Создать</button>
+    </form>
+    <p>
+      Пользователь даёт токену личность: он записывается автором всех
+      изменений в журнал аудита. Роль токена не может быть выше роли
+      этого пользователя — а если пользователя потом понизят или
+      деактивируют, токен потеряет права вместе с ним.
+    </p>
+  </div>
+
+  <div class="col-wide">
+    <h2>Выпущенные</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Название</th><th>Начало</th><th>Роль</th><th>От имени</th>
+          <th>Создан</th><th>Последнее обращение</th><th>Статус</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tokens %}
+        <tr>
+          <td>{{ t.name }}</td>
+          <td class="nowrap"><code>{{ t.token_prefix }}…</code></td>
+          <td>{{ t.role | label('role') }}</td>
+          <td>{{ t.user.username }}</td>
+          <td class="nowrap">{{ t.created_at | msk_date }}</td>
+          <td class="nowrap">{{ t.last_used_at | msk_date if t.last_used_at else "не использовался" }}</td>
+          <td>{{ "Отозван" if t.revoked_at else "Действует" }}</td>
+          <td>
+            {% if not t.revoked_at %}
+            <form method="post" action="/api-tokens/{{ t.id }}/revoke" style="display:inline"
+                  onsubmit="return confirm('Отозвать токен? Потребитель, который им пользуется, потеряет доступ немедленно.')">
+              <button type="submit">Отозвать</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8">Токенов пока нет — API закрыт</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

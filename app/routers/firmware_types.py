@@ -41,7 +41,7 @@ def create_firmware_type(
 ):
     try:
         firmware_types_service.create_firmware_type(
-            db, name=name, platform_variant_id=int(platform_variant_id) if platform_variant_id else None
+            db, actor=user, name=name, platform_variant_id=int(platform_variant_id) if platform_variant_id else None
         )
     except firmware_types_service.FirmwareTypeNameTakenError:
         firmware_types = firmware_types_service.list_firmware_types(db)
@@ -68,7 +68,7 @@ def delete_firmware_type(
 ):
     firmware_type = _get_firmware_type_or_404(db, firmware_type_id)
     try:
-        firmware_types_service.delete_firmware_type(db, firmware_type)
+        firmware_types_service.delete_firmware_type(db, actor=user, firmware_type=firmware_type)
     except firmware_types_service.FirmwareTypeInUseError:
         firmware_types = firmware_types_service.list_firmware_types(db)
         return templates.TemplateResponse(

@@ -1,10 +1,18 @@
 """
 Business logic for platform_variants / platform_variant_slots — the
-"constructor" for one BOM/configuration within a Platform family. No
-audit_log entries here: AGENTS.md requires auditing for part_units,
-platform_items, platform_components (and users) because those track
-physical inventory and access; the variant catalog itself is reference
-data, not inventory state.
+"constructor" for one BOM/configuration within a Platform family.
+
+Everything that defines the BOM is audited: the variant itself, its
+slots, and its firmware/MAC requirements. This used to be left out on
+the reasoning that a BOM is reference data rather than inventory state.
+That reasoning does not survive the JSON API — the BOM is the standard
+every item of this configuration is checked against, so an edit here
+silently changes what "complete" means for a whole production run. When
+an agent can make that edit, the log has to say who did.
+
+Deletion is audited as well, and matters most of the three: it takes the
+BOM out of the system entirely, so the log is the only place it goes on
+existing.
 """
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
@@ -21,8 +29,10 @@ from app.models import (
     PlatformVariantFirmwareRequirement,
     PlatformVariantMacRequirement,
     PlatformVariantSlot,
+    User,
 )
 from app.services import attachments as attachments_service
+from app.services import audit
 
 
 class VariantNameTakenError(Exception):
@@ -70,7 +80,9 @@ def get_variant(db: Session, variant_id: int) -> PlatformVariant | None:
     )
 
 
-def create_variant(db: Session, *, platform: Platform, name: str, description: str | None) -> PlatformVariant:
+def create_variant(
+    db: Session, *, actor: User, platform: Platform, name: str, description: str | None
+) -> PlatformVariant:
     if db.scalar(
         select(PlatformVariant).where(PlatformVariant.platform_id == platform.id, PlatformVariant.name == name)
     ) is not None:
@@ -78,6 +90,16 @@ def create_variant(db: Session, *, platform: Platform, name: str, description: s
 
     variant = PlatformVariant(platform_id=platform.id, name=name, description=description or None)
     db.add(variant)
+    db.flush()
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="platform_variant",
+        entity_id=variant.id,
+        action="create",
+        diff={"name": name, "platform_id": platform.id},
+    )
     db.commit()
     db.refresh(variant)
     return variant
@@ -86,6 +108,7 @@ def create_variant(db: Session, *, platform: Platform, name: str, description: s
 def add_slot(
     db: Session,
     *,
+    actor: User,
     variant: PlatformVariant,
     slot_name: str,
     category_id: int,
@@ -109,13 +132,29 @@ def add_slot(
         required=required,
     )
     db.add(slot)
+    db.flush()
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="platform_variant_slot",
+        entity_id=slot.id,
+        action="create",
+        diff={
+            "platform_variant_id": variant.id,
+            "slot_name": slot_name,
+            "category_id": category_id,
+            "quantity": quantity,
+            "required": required,
+        },
+    )
     db.commit()
     db.refresh(slot)
     return slot
 
 
 def add_firmware_requirement(
-    db: Session, *, variant: PlatformVariant, firmware_type_id: int, track_backup: bool
+    db: Session, *, actor: User, variant: PlatformVariant, firmware_type_id: int, track_backup: bool
 ) -> PlatformVariantFirmwareRequirement:
     if db.get(FirmwareType, firmware_type_id) is None:
         raise FirmwareTypeNotFoundError(firmware_type_id)
@@ -131,13 +170,27 @@ def add_firmware_requirement(
         platform_variant_id=variant.id, firmware_type_id=firmware_type_id, track_backup=track_backup
     )
     db.add(requirement)
+    db.flush()
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="platform_variant_firmware_requirement",
+        entity_id=requirement.id,
+        action="create",
+        diff={
+            "platform_variant_id": variant.id,
+            "firmware_type_id": firmware_type_id,
+            "track_backup": track_backup,
+        },
+    )
     db.commit()
     db.refresh(requirement)
     return requirement
 
 
 def add_mac_requirement(
-    db: Session, *, variant: PlatformVariant, label: str, required: bool
+    db: Session, *, actor: User, variant: PlatformVariant, label: str, required: bool
 ) -> PlatformVariantMacRequirement:
     if db.scalar(
         select(PlatformVariantMacRequirement).where(
@@ -151,12 +204,24 @@ def add_mac_requirement(
         platform_variant_id=variant.id, label=label, required=required
     )
     db.add(requirement)
+    db.flush()
+
+    audit.record(
+        db,
+        actor_id=actor.id,
+        entity_type="platform_variant_mac_requirement",
+        entity_id=requirement.id,
+        action="create",
+        diff={"platform_variant_id": variant.id, "label": label, "required": required},
+    )
     db.commit()
     db.refresh(requirement)
     return requirement
 
 
-def delete_variant(db: Session, variant: PlatformVariant) -> None:
+def delete_variant(
+    db: Session, *, actor: User, variant: PlatformVariant, unlink_files: bool = True
+) -> None:
     """
     Blocked if the variant has any assembled platform_items — those are
     physical inventory and must never be silently deleted. The variant's
@@ -165,6 +230,13 @@ def delete_variant(db: Session, variant: PlatformVariant) -> None:
     reference data, not inventory, so it cascades — unless a scoped
     category/firmware_type is itself still in use elsewhere (part_types,
     firmware_records), in which case deletion is blocked too.
+
+    unlink_files=False keeps the attachments on disk while still removing
+    their rows. Only the API's dry run passes it: that runs inside a
+    transaction which is rolled back afterwards, and the filesystem is
+    not part of that transaction — an unlink here would survive the
+    rollback and quietly destroy files on a call whose entire promise is
+    that nothing happens.
     """
     if db.scalar(select(PlatformItem.id).where(PlatformItem.platform_variant_id == variant.id)) is not None:
         raise VariantInUseError(variant.id)
@@ -219,11 +291,20 @@ def delete_variant(db: Session, variant: PlatformVariant) -> None:
         file_paths = [attachments_service.file_path(f) for f in variant.files]
         db.query(Attachment).filter(Attachment.platform_variant_id == variant.id).delete()
 
+        audit.record(
+            db,
+            actor_id=actor.id,
+            entity_type="platform_variant",
+            entity_id=variant.id,
+            action="delete",
+            diff={"name": variant.name, "platform_id": variant.platform_id},
+        )
         db.delete(variant)
         db.commit()
     except VariantInUseError:
         db.rollback()
         raise
 
-    for path in file_paths:
-        path.unlink(missing_ok=True)
+    if unlink_files:
+        for path in file_paths:
+            path.unlink(missing_ok=True)

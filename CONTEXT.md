@@ -47,15 +47,17 @@ Compose + Caddy.
    русском UI/тексте — «элемент изделия», не «слот».
 
 4. **Схема — источник истины.**
-   `alembic/versions/0001_initial_schema.py`. Полностью сверена с
-   моделями (16 таблиц: users, platforms, platform_variants,
-   part_categories, firmware_types, part_types, part_units,
-   firmware_records, platform_variant_slots,
-   platform_variant_firmware_requirements,
+   `alembic/versions/` — 0001 создаёт базовую схему, 0002 добавляет
+   `api_tokens`, 0003 расширяет `audit_log.entity_type` до 64 символов.
+   Полностью сверена с моделями (19 таблиц: users,
+   api_tokens, platforms, platform_variants, part_categories,
+   firmware_types, part_types, part_units, firmware_records,
+   platform_variant_slots, platform_variant_firmware_requirements,
    platform_variant_mac_requirements, platform_items,
-   platform_components, platform_events, mac_addresses, audit_log) —
-   колонки, nullable, unique/check-constraints и индексы совпадают 1:1,
-   downgrade() корректен по порядку FK-зависимостей. Прошивки и
+   platform_components, platform_events, mac_addresses, audit_log,
+   login_attempts, attachments) — колонки, nullable,
+   unique/check-constraints и индексы совпадают 1:1, downgrade()
+   корректен по порядку FK-зависимостей. Прошивки и
    MAC-адреса — тоже элементы конструктора (requirements-таблицы на
    исполнение), не только физические детали, см. AGENTS.md.
    `part_categories`/`firmware_types` — исключение из «языковой
@@ -79,8 +81,11 @@ Compose + Caddy.
 
 - **Веб** (`app/routers/*.py` + Jinja) — для человека, по-русски.
 - **JSON API** (`app/routers/api_v1.py`, `/api/v1`) — для скриптов и
-  LLM-агента: 6 операций чтения и 4 записи, у каждой записи есть
-  `dry_run`. Выключен, пока не задан `API_TOKEN`.
+  LLM-агента: 8 операций чтения и 19 записи, у каждой записи есть
+  `dry_run`. Покрывают весь цикл — от создания платформы и состава
+  исполнения до отгрузки и удаления. Доступ — по токенам из таблицы
+  `api_tokens`, которые выпускаются и отзываются на `/api-tokens`; пока
+  ни одного токена нет, API закрыт.
 
 Оба вызывают **один и тот же сервисный слой**, поэтому правила
 (порядок этапов, блокировка состава, аудит) действуют одинаково и

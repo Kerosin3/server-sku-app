@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.i18n import PLATFORM_EVENT_TYPES, PLATFORM_STATUSES
 from tests.conftest import event_count
@@ -51,7 +52,7 @@ def test_documented_endpoints_match_the_implementation(client: TestClient):
     assert len(section) == 2, "the API capability section is missing from AGENTS.md"
     documented = {
         f"{method} {_normalize(path)}"
-        for method, path in re.findall(r"`(GET|POST) (/[^`?]*)", section[1])
+        for method, path in re.findall(r"`(GET|POST|PATCH|PUT|DELETE) (/[^`?]*)", section[1])
     }
 
     schema = client.get("/openapi.json").json()
@@ -74,13 +75,18 @@ def test_documented_endpoints_match_the_implementation(client: TestClient):
 # --------------------------------------------------------------------------
 
 
-def test_request_without_token_is_rejected(client: TestClient):
+# Both take api_token without sending it: a live token has to exist for
+# these to be testing "your token is wrong" rather than "this deployment
+# has no API", which is a different code (see api_disabled below).
+
+
+def test_request_without_token_is_rejected(client: TestClient, api_token):
     response = client.get("/api/v1/items")
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "unauthenticated"
 
 
-def test_request_with_wrong_token_is_rejected(client: TestClient):
+def test_request_with_wrong_token_is_rejected(client: TestClient, api_token):
     response = client.get("/api/v1/items", headers={"Authorization": "Bearer nope"})
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "unauthenticated"
@@ -274,16 +280,16 @@ def test_real_write_persists_and_returns_new_state(client: TestClient, auth, dem
 # --------------------------------------------------------------------------
 
 
-def test_viewer_token_cannot_write(client: TestClient, auth, demo_item, service_role):
-    service_role("viewer")
+def test_viewer_token_cannot_write(client: TestClient, issue_token, demo_item):
+    headers = {"Authorization": f"Bearer {issue_token(role='viewer')}"}
     response = client.post(
-        f"/api/v1/items/{demo_item['id']}/events", json={"event_type": "service"}, headers=auth
+        f"/api/v1/items/{demo_item['id']}/events", json={"event_type": "service"}, headers=headers
     )
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "insufficient_role"
 
 
-def test_viewer_token_does_not_see_commercial_fields(client: TestClient, auth, demo_item, service_role):
+def test_viewer_token_does_not_see_commercial_fields(client: TestClient, issue_token, demo_item):
     """
     Same rule the templates enforce for the viewer role (AGENTS.md ->
     "Роли и доступ"), applied at the serialization boundary now that
@@ -291,20 +297,20 @@ def test_viewer_token_does_not_see_commercial_fields(client: TestClient, auth, d
     """
     assert demo_item["customer"], "the demo item should have a customer set for this to be meaningful"
 
-    service_role("viewer")
-    response = client.get(f"/api/v1/items/{demo_item['id']}", headers=auth)
+    headers = {"Authorization": f"Bearer {issue_token(role='viewer')}"}
+    response = client.get(f"/api/v1/items/{demo_item['id']}", headers=headers)
     assert response.status_code == 200
     assert response.json()["customer"] is None
 
 
-def test_deactivating_the_service_account_disables_the_api(client: TestClient, auth):
-    from app.config import settings
+def test_deactivating_the_user_disables_its_tokens(client: TestClient, auth):
     from app.db import SessionLocal
     from app.models import User
+    from tests.conftest import SERVICE_USERNAME
 
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.username == settings.api_service_username).one()
+        user = db.query(User).filter(User.username == SERVICE_USERNAME).one()
         user.is_active = False
         db.commit()
 
@@ -315,3 +321,138 @@ def test_deactivating_the_service_account_disables_the_api(client: TestClient, a
         user.is_active = True
         db.commit()
         db.close()
+
+
+# --------------------------------------------------------------------------
+# Tokens
+# --------------------------------------------------------------------------
+
+
+def test_revoked_token_stops_working(client: TestClient, issue_token, api_token):
+    """
+    Revocation is the whole reason tokens are rows rather than a .env
+    value. api_token is taken but never sent: it keeps another live token
+    on the deployment, so the rejection below is "this token is revoked"
+    and not "this deployment has no API", which is a different code.
+    """
+    from app.db import SessionLocal
+    from app.models import ApiToken
+    from app.services import api_tokens as tokens_service
+
+    raw_token = issue_token()
+    headers = {"Authorization": f"Bearer {raw_token}"}
+    assert client.get("/api/v1/items", headers=headers).status_code == 200
+
+    db = SessionLocal()
+    try:
+        token = db.scalar(
+            select(ApiToken).where(ApiToken.token_hash == tokens_service.hash_token(raw_token))
+        )
+        tokens_service.revoke_token(db, actor=None, token=token)
+    finally:
+        db.close()
+
+    response = client.get("/api/v1/items", headers=headers)
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "unauthenticated"
+
+
+def test_revoking_one_token_leaves_the_others_working(client: TestClient, issue_token):
+    """The property the shared .env token could not offer at all."""
+    from app.db import SessionLocal
+    from app.models import ApiToken
+    from app.services import api_tokens as tokens_service
+
+    doomed = issue_token()
+    survivor = issue_token()
+
+    db = SessionLocal()
+    try:
+        token = db.scalar(
+            select(ApiToken).where(ApiToken.token_hash == tokens_service.hash_token(doomed))
+        )
+        tokens_service.revoke_token(db, actor=None, token=token)
+    finally:
+        db.close()
+
+    assert client.get("/api/v1/items", headers={"Authorization": f"Bearer {doomed}"}).status_code == 401
+    assert client.get("/api/v1/items", headers={"Authorization": f"Bearer {survivor}"}).status_code == 200
+
+
+def test_the_users_role_caps_the_tokens_role(client: TestClient, auth, demo_item, service_role):
+    """
+    A token issued as 'engineer' must lose write access the moment the
+    user it acts as is demoted — otherwise a token would be a way to keep
+    rights its owner no longer has, and demoting someone would silently
+    not take effect.
+    """
+    service_role("viewer")
+    response = client.post(
+        f"/api/v1/items/{demo_item['id']}/events", json={"event_type": "service"}, headers=auth
+    )
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "insufficient_role"
+
+
+def test_a_token_cannot_be_issued_above_its_users_role(service_role):
+    """The same bound, refused at the point the mistake is made."""
+    from app.db import SessionLocal
+    from app.models import User
+    from app.services import api_tokens as tokens_service
+    from tests.conftest import SERVICE_USERNAME
+
+    service_role("viewer")
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.username == SERVICE_USERNAME).one()
+        with pytest.raises(tokens_service.RoleExceedsUserError):
+            tokens_service.create_token(
+                db, actor=None, name="should not exist", user=user, role="admin"
+            )
+    finally:
+        db.close()
+
+
+def test_the_plaintext_token_is_not_stored(issue_token):
+    """
+    Only the hash goes to the database. If the raw string were ever
+    persisted, a database dump would hand over every consumer's access.
+    """
+    from app.db import SessionLocal
+    from app.models import ApiToken
+    from app.services import api_tokens as tokens_service
+
+    raw_token = issue_token()
+    db = SessionLocal()
+    try:
+        stored = db.scalar(
+            select(ApiToken).where(ApiToken.token_hash == tokens_service.hash_token(raw_token))
+        )
+        assert stored is not None, "the token should be findable by its hash"
+        assert raw_token not in (stored.token_hash, stored.name)
+        assert stored.token_prefix and raw_token.startswith(stored.token_prefix)
+        assert len(stored.token_prefix) < len(raw_token), "the stored prefix must not be the whole token"
+    finally:
+        db.close()
+
+
+def test_the_api_is_closed_when_no_token_has_been_issued(client: TestClient, issue_token):
+    """
+    Safe by default: a deployment that never issues a token has no API,
+    and says so rather than looking like a wrong-password failure.
+    """
+    from app.db import SessionLocal
+    from app.models import ApiToken
+    from app.services import api_tokens as tokens_service
+
+    raw_token = issue_token()  # revoked again by the fixture's teardown
+    db = SessionLocal()
+    try:
+        for token in db.scalars(select(ApiToken).where(ApiToken.revoked_at.is_(None))).all():
+            tokens_service.revoke_token(db, actor=None, token=token)
+    finally:
+        db.close()
+
+    response = client.get("/api/v1/items", headers={"Authorization": f"Bearer {raw_token}"})
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "api_disabled"

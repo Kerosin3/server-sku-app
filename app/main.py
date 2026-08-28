@@ -11,6 +11,7 @@ from app.config import settings
 from app.templating import templates
 from app.routers import (
     account,
+    api_tokens,
     api_v1,
     auth,
     platforms,
@@ -39,6 +40,7 @@ app.include_router(firmware_types.router)
 app.include_router(part_units.router)
 app.include_router(search.router)
 app.include_router(users.router)
+app.include_router(api_tokens.router)
 app.include_router(api_v1.router)
 
 

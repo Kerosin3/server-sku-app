@@ -15,9 +15,11 @@ from app.models.mac_address import MacAddress
 from app.models.audit_log import AuditLog
 from app.models.login_attempt import LoginAttempt
 from app.models.attachment import Attachment
+from app.models.api_token import ApiToken
 
 __all__ = [
     "User",
+    "ApiToken",
     "PartCategory",
     "FirmwareType",
     "PartType",

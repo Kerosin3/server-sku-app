@@ -192,7 +192,7 @@ def update_details(
     return item
 
 
-def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
+def delete_item(db: Session, *, actor: User, item: PlatformItem, unlink_files: bool = True) -> None:
     """
     Blocked once shipped — that's real delivered-product history, not
     something to clean up after a mistake. part_units that were actively
@@ -201,6 +201,10 @@ def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
     and part_unit-owned mac_addresses stay with the part_unit, since
     those describe the part itself, not this item. Only this item's own
     components/events/item-owned MACs are removed.
+
+    unlink_files=False keeps the attachments on disk while still removing
+    their rows — see delete_variant in app/services/platform_variants.py
+    for why the API's dry run needs that.
     """
     if item.status == "shipped":
         raise ItemShippedError(item.id)
@@ -230,8 +234,9 @@ def delete_item(db: Session, *, actor: User, item: PlatformItem) -> None:
     db.delete(item)
     db.commit()
 
-    for path in file_paths:
-        path.unlink(missing_ok=True)
+    if unlink_files:
+        for path in file_paths:
+            path.unlink(missing_ok=True)
 
 
 def install_component(

@@ -23,7 +23,7 @@ convention in AGENTS.md puts them on the English side.
 """
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.i18n import (
     FIRMWARE_IMAGE_SLOTS,
@@ -242,6 +242,28 @@ class PlatformOut(BaseModel):
     variants: list[VariantRef]
 
 
+class PartCategoryOut(BaseModel):
+    """A kind of part a BOM slot can call for — the catalog behind slot.category."""
+
+    id: int
+    name: str = Field(description="Russian catalog name, editable by users; not a fixed code.")
+    group: str = Field(description='"custom" (in-house board) or "purchased" (off-the-shelf part).')
+    group_label: str
+    platform_variant_id: int | None = Field(
+        default=None,
+        description="Null for a category available everywhere; otherwise it exists only for that variant.",
+    )
+
+
+class FirmwareTypeOut(BaseModel):
+    id: int
+    name: str
+    platform_variant_id: int | None = Field(
+        default=None,
+        description="Null for a firmware type available everywhere; otherwise scoped to that variant.",
+    )
+
+
 # --------------------------------------------------------------------------
 # Search / part history
 # --------------------------------------------------------------------------
@@ -290,6 +312,21 @@ class PartHistory(BaseModel):
 
 
 class DryRunnable(BaseModel):
+    """
+    Base for every write request, and the place the strictness lives.
+
+    extra="forbid" matters more here than in a browser-facing API.
+    Pydantic's default is to drop unknown fields silently, so
+    PATCH /items/{id} with {"asset_tag": "..."} — a field that is
+    deliberately not editable — would return 200 having changed nothing.
+    A person would notice; a model would take the 200 as confirmation and
+    carry on reasoning from something that never happened. Rejecting the
+    field outright turns a hallucinated or misspelled parameter into a
+    422 the caller can see and correct.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     dry_run: bool = Field(
         default=False,
         description=(
@@ -349,11 +386,95 @@ class AddMacRequest(DryRunnable):
     )
 
 
+class CreateItemRequest(DryRunnable):
+    platform_variant_id: int = Field(description="Which configuration this unit is built to; GET /platforms lists them.")
+    asset_tag: str = Field(description="Unique identifier of the physical unit. Rejected if already used.")
+    customer: str | None = None
+    location: str | None = None
+    notes: str | None = None
+
+
+class UpdateItemRequest(DryRunnable):
+    """
+    Only these three fields are editable. asset_tag and the variant are
+    what the unit *is*, and changing either would silently rewrite the
+    identity of records already pointing at it.
+
+    Every field is optional; omitting one leaves it alone, passing null
+    clears it.
+    """
+
+    customer: str | None = None
+    location: str | None = None
+    notes: str | None = None
+
+
+class RemoveComponentRequest(DryRunnable):
+    """No fields of its own — which component is in the path."""
+
+
+class CreatePlatformRequest(DryRunnable):
+    name: str = Field(description="Product family name, unique across the system.")
+    description: str | None = None
+
+
+class CreateVariantRequest(DryRunnable):
+    name: str = Field(description="Configuration name, unique within its platform.")
+    description: str | None = None
+
+
+class AddSlotRequest(DryRunnable):
+    slot_name: str = Field(description="What this BOM line is called, e.g. 'CPU 1'. Unique within the variant.")
+    part_category_id: int = Field(description="Kind of part this line calls for; GET /part-categories lists them.")
+    quantity: int = Field(default=1, ge=1)
+    required: bool = Field(default=True, description="False marks the line optional for completeness checks.")
+
+
+class AddFirmwareRequirementRequest(DryRunnable):
+    firmware_type_id: int = Field(description="GET /firmware-types lists them.")
+    track_backup: bool = Field(
+        default=False,
+        description="True if this firmware has a backup image whose version is recorded separately.",
+    )
+
+
+class AddMacRequirementRequest(DryRunnable):
+    label: str = Field(description="Name of the expected address, e.g. 'BMC' or 'LAN1'. Unique within the variant.")
+    required: bool = True
+
+
+class CreatePartCategoryRequest(DryRunnable):
+    name: str
+    group: str = Field(description='"custom" for in-house boards, "purchased" for off-the-shelf parts.')
+    platform_variant_id: int | None = Field(
+        default=None,
+        description="Omit to make the category available everywhere; set it to scope it to one variant.",
+    )
+
+
+class CreateFirmwareTypeRequest(DryRunnable):
+    name: str
+    platform_variant_id: int | None = Field(
+        default=None,
+        description="Omit to make the firmware type available everywhere; set it to scope it to one variant.",
+    )
+
+
 class WriteResult(BaseModel):
+    """
+    One envelope for every write. Exactly one of the object fields is
+    filled in, whichever the call affected — the state after the write,
+    so a consumer never needs a follow-up GET to see the result.
+    """
+
     ok: bool
     dry_run: bool = Field(description="True when nothing was written.")
     detail: str = Field(description="What happened, or what would have happened on a dry run.")
     item: ItemDetail | None = Field(default=None, description="The item's state after the write.")
+    variant: VariantDetail | None = Field(default=None, description="The configuration's state after the write.")
+    platform: PlatformOut | None = Field(default=None, description="The platform's state after the write.")
+    part_category: PartCategoryOut | None = Field(default=None, description="The category that was created.")
+    firmware_type: FirmwareTypeOut | None = Field(default=None, description="The firmware type that was created.")
 
 
 # --------------------------------------------------------------------------
@@ -498,4 +619,69 @@ def item_detail(
             for row in mac_rows
         ],
         events=[event_out(e) for e in events],
+    )
+
+
+def part_category_out(category) -> PartCategoryOut:
+    return PartCategoryOut(
+        id=category.id,
+        name=category.name,
+        group=category.group,
+        group_label=PART_CATEGORY_GROUPS.get(category.group, category.group),
+        platform_variant_id=category.platform_variant_id,
+    )
+
+
+def firmware_type_out(firmware_type) -> FirmwareTypeOut:
+    return FirmwareTypeOut(
+        id=firmware_type.id,
+        name=firmware_type.name,
+        platform_variant_id=firmware_type.platform_variant_id,
+    )
+
+
+def platform_out(platform) -> PlatformOut:
+    return PlatformOut(
+        id=platform.id,
+        name=platform.name,
+        description=platform.description,
+        variants=[
+            VariantRef(id=v.id, name=v.name, platform=PlatformRef(id=platform.id, name=platform.name))
+            for v in platform.variants
+        ],
+    )
+
+
+def variant_detail(variant: PlatformVariant, *, item_count: int) -> VariantDetail:
+    """
+    item_count is passed in rather than read off the relationship: the
+    callers that have it already counted it with a COUNT query, and
+    loading every item of a configuration to call len() on them would be
+    a needless read of the largest table in the system.
+    """
+    return VariantDetail(
+        id=variant.id,
+        name=variant.name,
+        description=variant.description,
+        platform=PlatformRef(id=variant.platform.id, name=variant.platform.name),
+        slots=[
+            SlotOut(
+                id=s.id,
+                slot_name=s.slot_name,
+                category=s.category.name,
+                quantity=s.quantity,
+                required=s.required,
+            )
+            for s in variant.slots
+        ],
+        firmware_requirements=[
+            FirmwareRequirementOut(
+                firmware_type_id=r.firmware_type_id,
+                firmware_type=r.firmware_type.name,
+                track_backup=r.track_backup,
+            )
+            for r in variant.firmware_requirements
+        ],
+        mac_requirements=[MacRequirementOut(label=r.label, required=r.required) for r in variant.mac_requirements],
+        item_count=item_count,
     )
