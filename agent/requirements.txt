@@ -1,0 +1,5 @@
+# Dependencies of the API consumer, deliberately not of the tracker —
+# app/ must stay installable from the repository's own requirements.txt
+# with nothing extra (AGENTS.md, "Конвенции кода").
+langchain-core>=0.3
+httpx>=0.27
