@@ -2,4 +2,11 @@
 # app/ must stay installable from the repository's own requirements.txt
 # with nothing extra (AGENTS.md, "Конвенции кода").
 langchain-core>=0.3
+langchain-ollama>=0.2
 httpx>=0.27
+
+# Hosted providers are not installed by default: only the one actually
+# in use is needed, and the local setup should not drag in an SDK for a
+# service it never calls. See model.py.
+#   pip install langchain-anthropic     # MODEL_PROVIDER=anthropic
+#   pip install langchain-openai        # MODEL_PROVIDER=openai

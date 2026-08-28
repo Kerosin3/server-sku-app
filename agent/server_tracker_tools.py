@@ -178,9 +178,18 @@ class RecordEventInput(BaseModel):
             "test_passed_with_remarks, test_failed, shipped, service."
         )
     )
-    notes: str | None = Field(
-        default=None,
-        description="Required for test_passed_with_remarks: what the remarks were.",
+    # Plain str with an empty default, not `str | None`. A nullable field
+    # gives a model two ways to say "nothing here" and this one reliably
+    # picked a third: the first attempt at filling it came back as -2026,
+    # or as false, before the model corrected itself on a retry. With the
+    # union gone it fills the field or leaves it empty, which are the only
+    # two things that make sense.
+    notes: str = Field(
+        default="",
+        description=(
+            "Free-text comment. Leave it as an empty string when there is nothing to add. "
+            "Required for test_passed_with_remarks: what the remarks were."
+        ),
     )
     dry_run: bool = Field(
         default=True,
@@ -192,7 +201,7 @@ class RecordEventInput(BaseModel):
 
 
 @tool("record_item_event", args_schema=RecordEventInput)
-def record_item_event(item_id: int, event_type: str, notes: str | None = None, dry_run: bool = True) -> str:
+def record_item_event(item_id: int, event_type: str, notes: str = "", dry_run: bool = True) -> str:
     """Record a lifecycle stage against an item. Defaults to a dry run.
 
     Stage order is enforced by the tracker: shipping needs a passed test,
@@ -206,7 +215,7 @@ def record_item_event(item_id: int, event_type: str, notes: str | None = None, d
     call it again with dry_run=false to commit.
     """
     body = {"event_type": event_type, "dry_run": dry_run}
-    if notes is not None:
+    if notes:
         body["notes"] = notes
     return _as_tool_output(call_api("POST", f"/items/{item_id}/events", body=body))
 
