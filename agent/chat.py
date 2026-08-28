@@ -21,15 +21,23 @@ Two guards live here rather than in the prompt:
 - **A step limit.** A model that misreads an error can call the same
   tool forever. The cap turns that into a visible stop instead of a
   process spinning against the tracker.
+
+A turn answers in the same four-field contract the tools use — Status,
+Action, Data, Errors. One shape at both boundaries: what a tool hands the
+model, and what the agent hands whoever called it. That makes a turn
+scriptable rather than only readable, and it means a failure is reported
+in a form a caller can branch on instead of a sentence it has to
+recognise by its wording.
 """
 import json
 import sys
+from dataclasses import dataclass
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
 from model import build_model, describe
+from server_tracker_tools import TOOLS, format_result, is_error, summary
 from prompt import SYSTEM_PROMPT
-from server_tracker_tools import TOOLS
 
 TOOLS_BY_NAME = {t.name: t for t in TOOLS}
 MAX_STEPS = 12
@@ -43,8 +51,37 @@ def _is_committing(args: dict) -> bool:
     return args.get("dry_run") is False
 
 
-def _error(code: str, message: str, hint: str) -> str:
-    return json.dumps({"ok": False, "code": code, "message": message, "hint": hint}, ensure_ascii=False)
+def _label(name: str, args: dict) -> str:
+    """The call as one line, for the Action field of a loop-level error."""
+    return f"{name}({json.dumps(args, ensure_ascii=False)})"
+
+
+def _error(action: str, code: str, message: str, hint: str) -> str:
+    """Failures raised by the loop itself, in the contract the tools use.
+
+    The model must not be able to tell "the tracker refused" from "the
+    loop refused" by the shape of the answer — one envelope, or it learns
+    to parse two.
+    """
+    return format_result(action, {"ok": False, "code": code, "message": message, "hint": hint})
+
+
+@dataclass
+class AgentResult:
+    """What a turn returns. Rendered with render(), inspected by field."""
+
+    status: str  # "success" | "error"
+    action: str  # the chain of tool calls the turn actually made
+    data: str = ""  # the answer meant for the person
+    errors: str = ""
+
+    def render(self) -> str:
+        lines = [f"Status: {self.status}", f"Action: {self.action}"]
+        if self.data:
+            lines.append(f"Data: {self.data}")
+        if self.errors:
+            lines.append(f"Errors: {self.errors}")
+        return "\n".join(lines)
 
 
 def _validate(tool, args: dict) -> str | None:
@@ -68,6 +105,7 @@ def _validate(tool, args: dict) -> str | None:
         schema.model_validate(args)
     except Exception as exc:
         return _error(
+            _label(tool.name, args),
             "invalid_arguments",
             f"{type(exc).__name__}: {exc}",
             "Fix the argument types and call again. Do not drop the field to make the call pass.",
@@ -91,14 +129,11 @@ def _invoke(tool, args: dict) -> str:
     try:
         return tool.invoke(args)
     except Exception as exc:
-        return json.dumps(
-            {
-                "ok": False,
-                "code": "invalid_arguments",
-                "message": f"{type(exc).__name__}: {exc}",
-                "hint": "Re-read the tool's argument types and call it again with corrected values.",
-            },
-            ensure_ascii=False,
+        return _error(
+            _label(tool.name, args),
+            "invalid_arguments",
+            f"{type(exc).__name__}: {exc}",
+            "Re-read the tool's argument types and call it again with corrected values.",
         )
 
 
@@ -115,8 +150,14 @@ def _confirm(tool_name: str, args: dict) -> bool:
     return answer in ("y", "yes", "д", "да")
 
 
-def run_turn(model, messages: list, *, verbose: bool = True) -> str:
+def run_turn(model, messages: list, *, verbose: bool = True) -> AgentResult:
     """One user question through to an answer, executing tools on the way."""
+    # What the turn actually did, and what went wrong on the way. Both go
+    # into the result: recovered failures are reported even on success,
+    # because "it answered, but only after three rejected calls" is worth
+    # knowing and is invisible otherwise.
+    performed: list[str] = []
+    failures: list[str] = []
     # Asked once and told no, the answer stays no for the rest of this
     # turn. Otherwise a model that ignores the refusal re-prompts the
     # person for the same write until the step limit stops it.
@@ -132,7 +173,12 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
         messages.append(reply)
 
         if not reply.tool_calls:
-            return reply.content
+            return AgentResult(
+                status="success",
+                action=" → ".join(performed) or "ответ без обращения к трекеру",
+                data=reply.content,
+                errors="; ".join(failures),
+            )
 
         for call in reply.tool_calls:
             name, args = call["name"], call["args"]
@@ -155,6 +201,7 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
                     "Попробуй переформулировать задачу или сделать это в веб-интерфейсе."
                 )
                 result = _error(
+                    _label(name, args),
                     "repeated_call",
                     "This exact call has already failed the same way; the turn is being abandoned.",
                     "Nothing was written.",
@@ -163,6 +210,7 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
                 # The model invented a tool. Say so in the conversation
                 # instead of crashing: it can recover from being told.
                 result = _error(
+                    _label(name, args),
                     "unknown_tool",
                     f"There is no tool named {name!r}.",
                     f"Available tools: {', '.join(TOOLS_BY_NAME)}.",
@@ -172,6 +220,7 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
             elif _is_committing(args) and (declined or not _confirm(name, args)):
                 declined = True
                 result = _error(
+                    _label(name, args),
                     "refused_by_user",
                     "The user did not confirm this write, so nothing was done.",
                     "Tell the user it was cancelled. Do not retry it in this turn.",
@@ -179,9 +228,12 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
             else:
                 result = _invoke(tool, args)
 
+            outcome = summary(result)
+            performed.append(f"{name} [{outcome}]")
+            if is_error(result):
+                failures.append(f"{name}: {outcome.removeprefix('error — ')}")
             if verbose:
-                payload = json.loads(result)
-                print(f"    {'ok' if payload.get('ok') else payload.get('code')}")
+                print(f"    {outcome}")
 
             # Appended even when giving up: every tool_call in a reply
             # needs its ToolMessage, or the next turn starts from a
@@ -189,11 +241,19 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> str:
             messages.append(ToolMessage(result, tool_call_id=call["id"]))
 
         if abort:
-            return abort
+            return AgentResult(
+                status="error",
+                action=" → ".join(performed),
+                errors=abort,
+            )
 
-    return (
-        f"Прервано: модель сделала {MAX_STEPS} шагов и не пришла к ответу. "
-        "Скорее всего, она зациклилась на одной ошибке."
+    return AgentResult(
+        status="error",
+        action=" → ".join(performed),
+        errors=(
+            f"step_limit: модель сделала {MAX_STEPS} шагов и не пришла к ответу. "
+            "Скорее всего, она зациклилась на одной ошибке."
+        ),
     )
 
 
@@ -205,7 +265,7 @@ def main() -> None:
         question = " ".join(sys.argv[1:])
         messages.append(HumanMessage(question))
         print(f"> {question}")
-        print(f"\n{run_turn(model, messages)}")
+        print(f"\n{run_turn(model, messages).render()}")
         return
 
     print(f"Трекер-ассистент. Модель: {describe()}. Пустая строка — выход.\n")
@@ -218,7 +278,7 @@ def main() -> None:
         if not question:
             return
         messages.append(HumanMessage(question))
-        print(f"\n{run_turn(model, messages)}\n")
+        print(f"\n{run_turn(model, messages).render()}\n")
 
 
 if __name__ == "__main__":

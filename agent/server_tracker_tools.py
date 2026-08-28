@@ -12,11 +12,12 @@ being a language model rather than a program:
 **Failures are returned, not raised.** An exception out of a LangChain
 tool becomes a stack trace or an aborted run, and the useful part — the
 `hint` the API puts on every error, naming the call that would fix the
-problem — never reaches the model. Every tool here returns the same JSON
-envelope for success and for failure, so the model reads `ok` and, when
-it is false, `hint`, and corrects itself. Transport failures are shaped
-the same way, so "the server is down" and "you passed a bad id" arrive
-in a form the model can tell apart without special-casing.
+problem — never reaches the model. Every tool returns the same four-field
+contract for success and for failure (see format_result), so the model
+reads one shape and, when Status is error, corrects itself from the hint.
+Transport failures are shaped the same way, so "the server is down" and
+"you passed a bad id" arrive in a form the model can tell apart without
+special-casing.
 
 **Writes dry-run by default.** `record_item_event` will not commit
 unless the caller passes dry_run=False. The API validates a dry run
@@ -111,13 +112,50 @@ def call_api(method: str, path: str, *, params: dict | None = None, body: dict |
     }
 
 
-def _as_tool_output(payload: dict) -> str:
+def format_result(action: str, payload: dict) -> str:
     """
-    Structured result, serialized for the model. ensure_ascii=False
-    matters: the API answers with Russian labels next to every code, and
-    escaped \\uXXXX would be both unreadable and a waste of tokens.
+    Render an outcome into the fixed shape every tool returns:
+
+        Status: success | error
+        Action: <что делали>
+        Data:   <результат API>
+        Errors: <код, сообщение, подсказка>
+
+    One shape for success and failure means the model learns to read one
+    thing. `Data` and `Errors` are mutually exclusive and each is omitted
+    when it would be empty — an "Errors: —" line on every successful call
+    is noise the model has to read past on every single step.
+
+    `Action` restates what was attempted. Without it a bare result is
+    ambiguous once several calls are in the conversation, and it is also
+    what makes the trace readable to the person watching.
+
+    Data stays JSON, with ensure_ascii=False: the API answers with
+    Russian labels next to every code, and escaped \\uXXXX would be both
+    unreadable and roughly twice the tokens.
     """
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    if payload.get("ok"):
+        data = json.dumps(payload.get("data"), ensure_ascii=False, indent=2)
+        return f"Status: success\nAction: {action}\nData: {data}"
+
+    errors = f"{payload.get('code')}: {payload.get('message')}"
+    if payload.get("hint"):
+        errors += f"\nПодсказка: {payload['hint']}"
+    return f"Status: error\nAction: {action}\nErrors: {errors}"
+
+
+def is_error(result: str) -> bool:
+    return result.startswith("Status: error")
+
+
+def summary(result: str) -> str:
+    """One-line description of an outcome, for the trace in chat.py."""
+    if not is_error(result):
+        return "success"
+    for line in result.splitlines():
+        if line.startswith("Errors: "):
+            return "error — " + line.removeprefix("Errors: ").split(":", 1)[0]
+    return "error"
 
 
 # --------------------------------------------------------------------------
@@ -143,11 +181,14 @@ def search_inventory(query: str) -> str:
     the answer says which item it is installed in at the moment, and the
     ids it returns are what every other tool takes as input.
 
-    Returns JSON: {"ok": true, "data": {"items": [...], "parts": [...],
-    "mac_addresses": [...]}}. Empty lists mean nothing matched — that is
-    a valid answer, not an error.
+    On success Data holds {"items": [...], "parts": [...],
+    "mac_addresses": [...]}. Empty lists mean nothing matched — that is a
+    valid answer, not an error.
     """
-    return _as_tool_output(call_api("GET", "/search", params={"q": query}))
+    return format_result(
+        f"Поиск по запросу «{query}»",
+        call_api("GET", "/search", params={"q": query}),
+    )
 
 
 class GetItemInput(BaseModel):
@@ -167,7 +208,10 @@ def get_item(item_id: int) -> str:
     `status` is a stable code; `status_label` is the same thing in
     Russian — quote the label to the user, branch on the code.
     """
-    return _as_tool_output(call_api("GET", f"/items/{item_id}"))
+    return format_result(
+        f"Чтение состояния изделия id={item_id}",
+        call_api("GET", f"/items/{item_id}"),
+    )
 
 
 class RecordEventInput(BaseModel):
@@ -206,8 +250,8 @@ def record_item_event(item_id: int, event_type: str, notes: str = "", dry_run: b
 
     Stage order is enforced by the tracker: shipping needs a passed test,
     testing needs the unit assembled, and so on. A refusal comes back as
-    {"ok": false, "code": "prerequisite_not_met", "hint": "..."} — read
-    the hint, it names what is missing.
+    Status: error with the code prerequisite_not_met and a hint naming
+    what is missing — read it.
 
     Use it in two steps. First call it as-is to check the stage is
     allowed; the response describes the state the write would produce
@@ -217,7 +261,11 @@ def record_item_event(item_id: int, event_type: str, notes: str = "", dry_run: b
     body = {"event_type": event_type, "dry_run": dry_run}
     if notes:
         body["notes"] = notes
-    return _as_tool_output(call_api("POST", f"/items/{item_id}/events", body=body))
+    action = f"Этап «{event_type}» на изделие id={item_id}"
+    if notes:
+        action += f", комментарий «{notes}»"
+    action += " — проверка без записи" if dry_run else " — запись"
+    return format_result(action, call_api("POST", f"/items/{item_id}/events", body=body))
 
 
 TOOLS = [search_inventory, get_item, record_item_event]
