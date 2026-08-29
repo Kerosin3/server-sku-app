@@ -50,9 +50,15 @@ def test_documented_endpoints_match_the_implementation(client: TestClient):
     """
     section = AGENTS_MD.read_text(encoding="utf-8").split("### Что агент может через API", 1)
     assert len(section) == 2, "the API capability section is missing from AGENTS.md"
+    # Stop at the next top-level heading. Reading to the end of the file
+    # made every later mention of a route count as a documented API
+    # endpoint — the roadmap naming a web-only route was enough to fail
+    # this, which says nothing about the API surface and trains people to
+    # avoid writing paths in the rest of the document.
+    catalog = section[1].split("\n## ", 1)[0]
     documented = {
         f"{method} {_normalize(path)}"
-        for method, path in re.findall(r"`(GET|POST|PATCH|PUT|DELETE) (/[^`?]*)", section[1])
+        for method, path in re.findall(r"`(GET|POST|PATCH|PUT|DELETE) (/[^`?]*)", catalog)
     }
 
     schema = client.get("/openapi.json").json()
