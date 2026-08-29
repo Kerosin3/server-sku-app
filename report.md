@@ -1,39 +1,33 @@
-файл tool : agent/server_tracker_tools.py
+Файл с инструментами: `agent/server_tracker_tools.py`
 
-http.request 
+Реальный HTTP-вызов — единственный на весь агент, строка 69:
 
+```python
 response = httpx.request(
-      method, url,
-      params=params, json=body,
-      headers={"Authorization": f"Bearer {TOKEN}"},
-      timeout=TIMEOUT_SECONDS,
-  )
+    method, url,
+    params=params, json=body,
+    headers={"Authorization": f"Bearer {TOKEN}"},
+    timeout=TIMEOUT_SECONDS,
+)
+```
 
-инструменты:
-  ┌───────────────────┬────────────────┬───────┐
-  │    Инструмент     │     Схема      │ @tool │
-  ├───────────────────┼────────────────┼───────┤
-  │ search_inventory  │ :166           │ :176  │
-  ├───────────────────┼────────────────┼───────┤
-  │ get_item          │ :194           │ :198  │
-  ├───────────────────┼────────────────┼───────┤
-  │ record_item_event │ :217           │ :247  │
-  ├───────────────────┼────────────────┼───────┤
-  │ list_items        │ :271           │ :286  │
-  ├───────────────────┼────────────────┼───────┤
-  │ get_part_history  │ :310           │ :314  │
-  ├───────────────────┼────────────────┼───────┤
-  │ list_platforms    │ :328 (NoInput) │ :332  │
-  ├───────────────────┼────────────────┼───────┤
-  │ get_variant       │ :343           │ :347  │
-  ├───────────────────┼────────────────┼───────┤
-  │ install_component │ :362           │ :385  │
-  ├───────────────────┼────────────────┼───────┤
-  │ remove_component  │ :418           │ :432  │
-  └───────────────────┴────────────────┴───────┘
+Инструменты (номера строк в том же файле):
+
+| Инструмент | Схема | `@tool` |
+|---|---|---|
+| `search_inventory` | :166 | :176 |
+| `get_item` | :194 | :198 |
+| `record_item_event` | :217 | :247 |
+| `list_items` | :271 | :286 |
+| `get_part_history` | :310 | :314 |
+| `list_platforms` | :328 (`NoInput`) | :332 |
+| `get_variant` | :343 | :347 |
+| `install_component` | :362 | :385 |
+| `remove_component` | :418 | :432 |
 
 Пример работы агента: (не менее 54 методов использовано)
 
+```text
 ─$ .venv/bin/python chat.py
 Трекер-ассистент. Модель: qwen36-claude47:latest через Ollama (http://localhost:11434). Пустая строка — выход.
 
@@ -190,5 +184,4 @@ Data: **Прошивки изделия DEMO-0001:**
 | LAN1 | AA:BB:CC:00:01:02 | DEMO-MB-0001 |
 
 Все прошивки и MAC-адреса укомплектованы (satisfied).
-
-
+```
