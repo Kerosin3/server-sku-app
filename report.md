@@ -25,7 +25,25 @@ response = httpx.request(
 | `install_component` | :362 | :385 |
 | `remove_component` | :418 | :432 |
 
-Пример работы агента: (не менее 54 методов использовано)
+Пример работы агента. В сессии ниже — **10 вызовов API** к 6 различным
+эндпоинтам, задействовано 6 инструментов из 9:
+
+| Инструмент | Эндпоинт | Вызовов |
+|---|---|---|
+| `list_platforms` | `GET /platforms` | 1 |
+| `list_items` | `GET /items` | 1 |
+| `get_item` | `GET /items/{id}` | 1 |
+| `search_inventory` | `GET /search` | 2 |
+| `remove_component` | `POST /items/{id}/components/{cid}/remove` | 2 |
+| `install_component` | `POST /items/{id}/components` | 3 |
+
+Из десяти запросов восемь — чтение или сухой прогон, и только два
+записали в базу: снятие `DEMO-CPU-0002` и установка `DEMO-CPU-0005`.
+Обе записи подтверждены вручную и попали в `audit_log`.
+
+Ещё два хода отвечены без обращения к трекеру — по данным из более
+раннего `get_item` в том же разговоре; в трассе это видно как
+`Action: ответ без обращения к трекеру`.
 
 ```text
 ─$ .venv/bin/python chat.py
