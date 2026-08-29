@@ -252,6 +252,102 @@ def test_a_dry_run_is_not_treated_as_a_write(monkeypatch):
     )
 
 
+def test_a_successful_write_clears_the_repeat_guard(monkeypatch):
+    """
+    The replacement scenario, which the guard used to break.
+
+    install_component is refused because the item is assembled; the model
+    correctly records `disassembled` to unlock the component list, then
+    repeats the identical install — which is now legal. Counting bare
+    repetitions abandoned the turn on exactly the attempt that would have
+    worked, and told the person the model was stuck when it had in fact
+    just solved the problem.
+    """
+    torn_down = []
+
+    def request(method, url, **kwargs):
+        if url.endswith("/events"):
+            # Only a committed teardown unlocks the list; a dry run of it
+            # changes nothing, which is exactly why the model's second
+            # install attempt is still refused.
+            if kwargs["json"]["dry_run"] is False:
+                torn_down.append(True)
+            return _Response(200, {"performed": "disassembled"})
+        if torn_down:
+            return _Response(200, {"performed": "install"})
+        return _Response(409, {"error": {"code": "components_locked", "message": "m", "hint": "h"}})
+
+    monkeypatch.setattr(tools, "TOKEN", "stk_test")
+    monkeypatch.setattr(tools.httpx, "request", request)
+    monkeypatch.setattr(chat, "_confirm", lambda name, args: True)
+
+    # The observed sequence, call for call: two refused installs either
+    # side of a dry-run teardown, then the real teardown, then the third
+    # install — identical to the first two and the one that works.
+    install = {"item_id": 1, "slot_id": 1, "serial_number": "CPU-9", "dry_run": True}
+    teardown = {"item_id": 1, "event_type": "disassembled"}
+    result = _run(
+        FakeModel(
+            _tool_call("install_component", install, "a"),
+            _tool_call("record_item_event", dict(teardown, dry_run=True), "b"),
+            _tool_call("install_component", install, "c"),
+            _tool_call("record_item_event", dict(teardown, dry_run=False), "d"),
+            _tool_call("install_component", install, "e"),
+            AIMessage("Проверка прошла, ставить?"),
+        )
+    )
+
+    assert result.status == "success"
+    assert "repeated_call" not in result.errors
+    assert result.action.endswith("install_component [success]")
+
+
+def test_the_guard_still_stops_a_model_that_commits_nothing(monkeypatch):
+    """The clause above must not disarm the guard: only a write resets it."""
+    monkeypatch.setattr(tools, "TOKEN", "stk_test")
+    monkeypatch.setattr(
+        tools.httpx,
+        "request",
+        lambda *a, **k: _Response(409, {"error": {"code": "components_locked", "message": "m", "hint": "h"}}),
+    )
+    same = _tool_call("install_component", {"item_id": 1, "slot_id": 1, "dry_run": True})
+    result = _run(FakeModel(same, same, same, same))
+    assert result.status == "error"
+    assert "повторяет один и тот же неверный вызов" in result.errors
+
+
+def test_removing_a_component_hits_the_removal_endpoint(monkeypatch):
+    """
+    Removal is a POST to .../remove, not a DELETE: platform_components is
+    append-only, so taking a part out is recorded rather than erased.
+    """
+    seen = {}
+
+    def request(method, url, **kwargs):
+        seen.update(method=method, url=url, body=kwargs.get("json"))
+        return _Response(200, {"performed": "remove"})
+
+    monkeypatch.setattr(tools, "TOKEN", "stk_test")
+    monkeypatch.setattr(tools.httpx, "request", request)
+
+    result = tools.remove_component.invoke({"item_id": 1, "component_id": 7})
+    assert seen["method"] == "POST"
+    assert seen["url"].endswith("/api/v1/items/1/components/7/remove")
+    assert seen["body"] == {"dry_run": True}, "removal must default to a dry run"
+    assert result.startswith("Status: success")
+
+
+def test_removal_needs_a_confirmation_like_any_other_write(monkeypatch):
+    monkeypatch.setattr(chat, "_confirm", lambda name, args: False)
+    result = _run(
+        FakeModel(
+            _tool_call("remove_component", {"item_id": 1, "component_id": 7, "dry_run": False}),
+            AIMessage("Отменено."),
+        )
+    )
+    assert "refused_by_user" in result.errors
+
+
 def test_repeating_one_failing_call_abandons_the_turn(monkeypatch):
     monkeypatch.setattr(tools, "TOKEN", "stk_test")
     monkeypatch.setattr(

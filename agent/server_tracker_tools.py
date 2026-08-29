@@ -415,13 +415,60 @@ def install_component(
     return format_result(action, call_api("POST", f"/items/{item_id}/components", body=body))
 
 
-# Eight tools out of the API's twenty-seven operations, and the gap is
+class RemoveComponentInput(BaseModel):
+    item_id: int = Field(description="Which item the part is currently installed in.")
+    component_id: int = Field(
+        description=(
+            "Which installed component to take out. Comes from get_item -> "
+            "components_installed -> id. This is not the part_unit_id and not the slot id."
+        )
+    )
+    dry_run: bool = Field(
+        default=True,
+        description="True checks the removal and writes nothing. Pass False only after a dry run and a confirmation.",
+    )
+
+
+@tool("remove_component", args_schema=RemoveComponentInput)
+def remove_component(item_id: int, component_id: int, dry_run: bool = True) -> str:
+    """Take an installed part out of an item, returning it to stock. Defaults to a dry run.
+
+    Use this to replace a part: remove the old one, then install_component
+    the new one. Installing alone does not replace anything — it adds, and
+    the BOM line fills up instead.
+
+    Call get_item first and take component_id from components_installed.
+    Refused while the item is marked assembled, exactly like installing:
+    a 'disassembled' event has to reopen the component list.
+
+    The part is not erased — the record keeps that it was there, with the
+    date it came out. That history is the point of the log.
+    """
+    action = f"Снятие компонента id={component_id} с изделия id={item_id}"
+    action += " — проверка без записи" if dry_run else " — запись"
+    return format_result(
+        action,
+        call_api(
+            "POST",
+            f"/items/{item_id}/components/{component_id}/remove",
+            body={"dry_run": dry_run},
+        ),
+    )
+
+
+# Nine tools out of the API's twenty-seven operations, and the gap is
 # the point. A model picks correctly from a short, clearly separated
 # list; mapping every endpoint to a tool would make several of them
 # near-synonyms and the choice unreliable. Firmware and MAC registration
 # are the obvious next candidates — they belong to the same build flow —
 # but they are narrower than these, so they wait until something actually
 # needs them.
+#
+# remove_component was the ninth, added after a real failure: asked to
+# swap two CPUs, the model could only ever add. Removal is half of every
+# replacement, so leaving it out did not keep the list short — it made a
+# whole class of maintenance work impossible to express, and the model
+# hammered install_component because nothing else was available.
 TOOLS = [
     search_inventory,
     get_item,
@@ -431,4 +478,5 @@ TOOLS = [
     get_variant,
     record_item_event,
     install_component,
+    remove_component,
 ]

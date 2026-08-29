@@ -164,7 +164,8 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> AgentResult:
     declined = False
     # A model that misreads a rejection tends to re-send the identical
     # call. Counting them turns a silent spin against the step limit into
-    # a message it can actually act on.
+    # a message it can actually act on. Cleared whenever a write lands —
+    # see below, the counter is about a stuck model, not about repetition.
     attempts: dict[str, int] = {}
 
     for _ in range(MAX_STEPS):
@@ -227,6 +228,21 @@ def run_turn(model, messages: list, *, verbose: bool = True) -> AgentResult:
                 )
             else:
                 result = _invoke(tool, args)
+
+            # A committed write changes the tracker, so an identical call
+            # after it is not the same call: it is being made against a
+            # different world. Without this the guard fired on exactly the
+            # attempt that would have worked — install_component was
+            # refused as components_locked, the model correctly recorded
+            # `disassembled` to unlock the list, and its next install (the
+            # same arguments, now legal) was abandoned as a repeat.
+            #
+            # Repetition alone was never the thing worth stopping. A model
+            # stuck in a loop cannot commit anything, because every write
+            # goes through the human first — so a successful write is
+            # proof that the turn is making progress.
+            if _is_committing(args) and not is_error(result):
+                attempts.clear()
 
             outcome = summary(result)
             performed.append(f"{name} [{outcome}]")
